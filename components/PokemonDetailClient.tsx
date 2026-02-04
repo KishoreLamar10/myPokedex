@@ -711,7 +711,8 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                   Hidden Ability
                 </p>
-                {abilities.hidden.length > 0 && hiddenAbilityIds.has(pokemon.id) ? (
+                {abilities.hidden.length > 0 &&
+                hiddenAbilityIds.has(pokemon.id) ? (
                   <p className="mt-2 font-semibold text-emerald-200">
                     Yes — {abilities.hidden.join(", ")}
                   </p>

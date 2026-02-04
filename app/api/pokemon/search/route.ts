@@ -31,10 +31,9 @@ export async function GET(request: Request) {
       cacheTimestamp = now;
     }
 
-    const startsWithMatches = cachedList.filter((p) =>
-      p.name.startsWith(query),
-    );
-    const includesMatches = cachedList.filter(
+    const list = cachedList ?? [];
+    const startsWithMatches = list.filter((p) => p.name.startsWith(query));
+    const includesMatches = list.filter(
       (p) => !p.name.startsWith(query) && p.name.includes(query),
     );
     const matches = [...startsWithMatches, ...includesMatches].slice(
