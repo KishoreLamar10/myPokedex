@@ -87,22 +87,23 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
     if (list.length !== initialList.length) return;
     if (!hasMore) return;
 
-    const idleCallback =
-      "requestIdleCallback" in window
-        ? (window as any).requestIdleCallback
-        : (cb: () => void) => window.setTimeout(cb, 300);
+    const hasIdleCallback = "requestIdleCallback" in window;
+    const idleCallback = hasIdleCallback
+      ? (window as any).requestIdleCallback
+      : (cb: () => void) => window.setTimeout(cb, 300);
 
-    const idleId = idleCallback(async () => {
-      await loadMore();
-      setPrefetchDone(true);
-    });
+    const idleId: number | ReturnType<typeof requestIdleCallback> =
+      idleCallback(async () => {
+        await loadMore();
+        setPrefetchDone(true);
+      });
 
     return () => {
-      if ("cancelIdleCallback" in window) {
+      if (hasIdleCallback) {
         (window as any).cancelIdleCallback(idleId);
-      } else {
-        window.clearTimeout(idleId);
+        return;
       }
+      window.clearTimeout(idleId as number);
     };
   }, [
     prefetchDone,
