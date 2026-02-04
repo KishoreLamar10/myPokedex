@@ -3,8 +3,15 @@ import { getPokemonList } from "@/lib/pokeapi";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(200, Math.max(1, Number(searchParams.get("limit")) || 150));
+  const limit = Math.min(
+    200,
+    Math.max(1, Number(searchParams.get("limit")) || 150),
+  );
   const offset = Math.max(0, Number(searchParams.get("offset")) || 0);
   const list = await getPokemonList(limit, offset);
-  return Response.json(list);
+  return Response.json(list, {
+    headers: {
+      "Cache-Control": "s-maxage=3600, stale-while-revalidate=86400",
+    },
+  });
 }
