@@ -20,11 +20,30 @@ export interface PokemonExtended {
   officialArtwork: string;
   shinyArtwork: string;
   types: string[];
+  smogonNature?: string;
   abilities: {
     normal: string[];
     hidden: string[];
   };
   evolutions: Evolution[];
+  megaForms?: MegaForm[];
+}
+
+export interface MegaForm {
+  id: number;
+  slug: string;
+  name: string;
+  sprite: string;
+  officialArtwork: string;
+  shinyArtwork: string;
+  types: string[];
+  stats: { name: string; value: number }[];
+  smogonNature?: string;
+  abilities: {
+    normal: string[];
+    hidden: string[];
+  };
+  smogonRecommended?: boolean;
 }
 
 export interface PokemonDetail extends PokemonListItem {

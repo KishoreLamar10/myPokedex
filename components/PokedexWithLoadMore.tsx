@@ -11,6 +11,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { PokedexGrid } from "@/components/PokedexGrid";
 import { TOTAL_POKEMON } from "@/lib/pokeapi";
+import { getEggMoveEntry } from "@/lib/eggMoves";
+import { getHiddenAbilityRecommendation } from "@/lib/hiddenAbilities";
 import type { PokemonListItem } from "@/types/pokemon";
 
 const BATCH_SIZE = 150;
@@ -28,6 +30,15 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
   const [prefetchDone, setPrefetchDone] = useState(false);
   const [searchResults, setSearchResults] = useState<PokemonListItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [filters, setFilters] = useState({
+    hasMega: false,
+    haRecommended: false,
+    eggMoves: false,
+  });
+  const [metaById, setMetaById] = useState<
+    Record<number, { hasMega?: boolean }>
+  >({});
+  const metaLoadingRef = useRef<Set<number>>(new Set());
   const sentinelRef = useRef<HTMLDivElement>(null);
   const deferredSearch = useDeferredValue(searchQuery);
   const router = useRouter();
@@ -64,11 +75,27 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
 
   const baseList = useMemo(() => list.filter((p) => p.id <= 1025), [list]);
 
+  const searchFiltered = useMemo(() => {
+    const q = deferredSearch.trim();
+    if (!q) return [] as PokemonListItem[];
+    let results = searchResults;
+    if (filters.haRecommended) {
+      results = results.filter((p) => getHiddenAbilityRecommendation(p.name));
+    }
+    if (filters.eggMoves) {
+      results = results.filter((p) => getEggMoveEntry(p.name));
+    }
+    if (filters.hasMega) {
+      results = results.filter((p) => metaById[p.id]?.hasMega);
+    }
+    return results;
+  }, [deferredSearch, searchResults, filters, metaById]);
+
   const filteredList = useMemo(() => {
     const q = deferredSearch.trim();
     if (!q) return baseList;
-    return searchResults;
-  }, [baseList, deferredSearch, searchResults]);
+    return searchFiltered;
+  }, [baseList, deferredSearch, searchFiltered]);
 
   useEffect(() => {
     setSearchQuery(initialParams.q);
@@ -204,6 +231,34 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
     return () => clearTimeout(timeout);
   }, [deferredSearch, filteredList.length]);
 
+  useEffect(() => {
+    if (!filters.hasMega) return;
+    const q = deferredSearch.trim();
+    if (!q) return;
+
+    const missing = searchResults.filter(
+      (p) => metaById[p.id]?.hasMega === undefined,
+    );
+
+    missing.forEach((p) => {
+      if (metaLoadingRef.current.has(p.id)) return;
+      metaLoadingRef.current.add(p.id);
+      fetch(`/api/pokemon/${p.id}?v=2`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          const hasMega =
+            Array.isArray(data?.megaForms) && data.megaForms.length > 0;
+          setMetaById((prev) => ({
+            ...prev,
+            [p.id]: { hasMega },
+          }));
+        })
+        .finally(() => {
+          metaLoadingRef.current.delete(p.id);
+        });
+    });
+  }, [filters.hasMega, deferredSearch, searchResults, metaById]);
+
   return (
     <div className="space-y-6">
       <div className="relative">
@@ -226,6 +281,33 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
           </button>
         )}
       </div>
+      {deferredSearch.trim() && (
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: "hasMega", label: "Has Mega" },
+            { key: "haRecommended", label: "HA Recommended" },
+            { key: "eggMoves", label: "Egg Moves" },
+          ].map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  [filter.key]: !prev[filter.key as keyof typeof prev],
+                }))
+              }
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
+                filters[filter.key as keyof typeof filters]
+                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-100"
+                  : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      )}
       {error && (
         <p className="rounded-lg bg-red-900/50 px-4 py-2 text-sm text-red-200">
           {error}

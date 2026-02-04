@@ -1,5 +1,6 @@
 import type {
   Evolution,
+  MegaForm,
   PokemonDetail,
   PokemonExtended,
   PokemonListItem,
@@ -10,8 +11,91 @@ const POKEAPI = "https://pokeapi.co/api/v2";
 /** Total Pokémon in PokeAPI (used for Load more). */
 export const TOTAL_POKEMON = 1025;
 
+const SMOGON_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
+const smogonCache = new Map<string, { value: any; expiresAt: number }>();
+
 function capitalize(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function formatName(str: string) {
+  return str
+    .replace(/-/g, " ")
+    .split(" ")
+    .map((part) => capitalize(part))
+    .join(" ");
+}
+
+function getBestArtwork(sprites: any) {
+  const official =
+    sprites?.other?.["official-artwork"]?.front_default ||
+    sprites?.other?.home?.front_default ||
+    sprites?.other?.dream_world?.front_default ||
+    sprites?.front_default ||
+    "";
+
+  const shiny =
+    sprites?.other?.["official-artwork"]?.front_shiny ||
+    sprites?.other?.home?.front_shiny ||
+    sprites?.front_shiny ||
+    official ||
+    "";
+
+  return { official, shiny };
+}
+
+async function isSmogonRecommended(megaSlug: string) {
+  const cacheKey = `smogon:rec:${megaSlug}`;
+  const cached = smogonCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  try {
+    const res = await fetch(
+      `https://www.smogon.com/dex/sm/pokemon/${megaSlug}/`,
+      { next: { revalidate: 86400 } },
+    );
+    const value = res.ok;
+    smogonCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + SMOGON_TTL_MS,
+    });
+    return value;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchSmogonNature(slug: string, gen: "sv" | "sm") {
+  const cacheKey = `smogon:nature:${gen}:${slug}`;
+  const cached = smogonCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  try {
+    const res = await fetch(
+      `https://www.smogon.com/dex/${gen}/pokemon/${slug}/`,
+      { next: { revalidate: 86400 } },
+    );
+    if (!res.ok) return null;
+    const html = await res.text();
+    const text = html.replace(/<[^>]+>/g, " ");
+    const match = text.match(/Nature:\s*([A-Za-z-]+)/);
+    const value = match?.[1] ?? null;
+    smogonCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + SMOGON_TTL_MS,
+    });
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+async function getSmogonNature(slug: string, gens: Array<"sv" | "sm">) {
+  for (const gen of gens) {
+    const nature = await fetchSmogonNature(slug, gen);
+    if (nature) return nature;
+  }
+  return null;
 }
 
 export async function getPokemonList(
@@ -237,12 +321,15 @@ export async function getPokemonExtended(
     );
 
     let evolutions: Evolution[] = [];
+    let megaForms: MegaForm[] = [];
+    const smogonNature = await getSmogonNature(data.name, ["sv", "sm"]);
     try {
       const speciesRes = await fetch(`${POKEAPI}/pokemon-species/${id}`, {
         next: { revalidate: 3600 },
       });
       if (speciesRes.ok) {
         const speciesData = await speciesRes.json();
+
         if (speciesData.evolution_chain?.url) {
           const chainRes = await fetch(speciesData.evolution_chain.url, {
             next: { revalidate: 3600 },
@@ -253,9 +340,90 @@ export async function getPokemonExtended(
             evolutions = await getEvolutionDetails(evoIds);
           }
         }
+
+        const megaVarietyNames = (speciesData.varieties ?? [])
+          .filter(
+            (v: { is_default: boolean; pokemon: { name: string } }) =>
+              !v.is_default && /-mega/.test(v.pokemon.name),
+          )
+          .map((v: { pokemon: { name: string } }) => v.pokemon.name)
+          .filter((name: string) => !name.includes("-mega-z"));
+
+        const baseName = speciesData.name ?? data.name;
+        const fallbackMegaNames = megaVarietyNames.length
+          ? []
+          : [`${baseName}-mega`, `${baseName}-mega-x`, `${baseName}-mega-y`];
+
+        const megaNames = Array.from(
+          new Set([...megaVarietyNames, ...fallbackMegaNames]),
+        );
+
+        if (megaNames.length > 0) {
+          const megaDetails = await Promise.all(
+            megaNames.map(async (name) => {
+              try {
+                const res = await fetch(`${POKEAPI}/pokemon/${name}`, {
+                  next: { revalidate: 3600 },
+                });
+                if (!res.ok) return null;
+                const mega = await res.json();
+
+                const normal: string[] = [];
+                const hidden: string[] = [];
+                (mega.abilities ?? []).forEach(
+                  (a: { ability: { name: string }; is_hidden: boolean }) => {
+                    const abilityName = formatName(a.ability.name);
+                    if (a.is_hidden) {
+                      hidden.push(abilityName);
+                    } else {
+                      normal.push(abilityName);
+                    }
+                  },
+                );
+
+                const smogonRecommended = await isSmogonRecommended(mega.name);
+                const smogonNature = await getSmogonNature(mega.name, ["sm"]);
+
+                const { official, shiny } = getBestArtwork(mega.sprites);
+
+                return {
+                  id: mega.id,
+                  slug: mega.name,
+                  name: formatName(mega.name),
+                  sprite: mega.sprites?.front_default ?? "",
+                  officialArtwork: official,
+                  shinyArtwork: shiny,
+                  types: (mega.types ?? []).map(
+                    (t: { type: { name: string } }) => formatName(t.type.name),
+                  ),
+                  stats: (mega.stats ?? []).map(
+                    (s: { stat: { name: string }; base_stat: number }) => ({
+                      name: formatName(s.stat.name),
+                      value: s.base_stat,
+                    }),
+                  ),
+                  smogonNature: smogonNature ?? undefined,
+                  abilities: {
+                    normal,
+                    hidden,
+                  },
+                  smogonRecommended,
+                } as MegaForm;
+              } catch {
+                return null;
+              }
+            }),
+          );
+
+          megaForms = megaDetails.filter((form) => {
+            if (!form) return false;
+            return Boolean(form.officialArtwork || form.sprite);
+          }) as MegaForm[];
+        }
       }
     } catch {
       evolutions = [];
+      megaForms = [];
     }
 
     const animatedSprite =
@@ -278,11 +446,13 @@ export async function getPokemonExtended(
       types: (data.types ?? []).map((t: { type: { name: string } }) =>
         capitalize(t.type.name),
       ),
+      smogonNature: smogonNature ?? undefined,
       abilities: {
         normal: normalAbilities,
         hidden: hiddenAbilities,
       },
       evolutions,
+      megaForms,
     };
   } catch {
     return null;

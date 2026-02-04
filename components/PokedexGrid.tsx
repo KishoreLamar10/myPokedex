@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCaught } from "@/components/CaughtProvider";
 import type { PokemonListItem } from "@/types/pokemon";
 
@@ -36,6 +37,7 @@ interface PokedexGridProps {
 }
 
 export function PokedexGrid({ list }: PokedexGridProps) {
+  const router = useRouter();
   const { caughtIds, toggleCaught, loading, error } = useCaught();
   const [filter, setFilter] = useState<"all" | "caught" | "uncaught">("all");
   const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -308,7 +310,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {filtered.map((pokemon, index) => {
           const caught = caughtIds.includes(pokemon.id);
           const isHovered = hoveredId === pokemon.id;
@@ -330,6 +332,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
               }}
               tabIndex={index === focusedIndex ? 0 : -1}
               onFocus={() => setFocusedIndex(index)}
+              onClick={() => router.push(`/pokedex/${pokemon.id}`)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -351,7 +354,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                   cardRefs.current[nextIndex]?.focus();
                 }
               }}
-              className="relative perspective focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 rounded-xl"
+              className="relative perspective focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 rounded-xl cursor-pointer"
               onMouseEnter={() => handleMouseEnter(pokemon.id)}
               onMouseLeave={() => {
                 if (hoverTimeoutRef.current) {
@@ -396,11 +399,6 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                   }`}
                 />
                 <div className="relative z-10">
-                  {caught && (
-                    <span className="absolute right-3 top-3 rounded-full bg-green-600/90 px-2 py-0.5 text-xs font-semibold text-green-50 shadow">
-                      Caught
-                    </span>
-                  )}
                   <div
                     className={`relative flex justify-between items-start transition-all duration-300 ${
                       isHovered ? "min-h-40 py-2" : "min-h-12 py-1"
@@ -416,7 +414,9 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                     <button
                       type="button"
                       onClick={(e) => handleToggle(e, pokemon.id)}
-                      className={`rounded-full px-2 py-1 text-xs font-semibold transition ${
+                      className={`rounded-full font-semibold transition ${
+                        isHovered ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm"
+                      } ${
                         caught
                           ? "bg-[var(--pokedex-screen)] text-zinc-900"
                           : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
