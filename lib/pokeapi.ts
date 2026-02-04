@@ -5,6 +5,7 @@ import type {
   PokemonExtended,
   PokemonListItem,
 } from "@/types/pokemon";
+import { getObtainingMethod } from "@/lib/obtaining";
 
 const POKEAPI = "https://pokeapi.co/api/v2";
 
@@ -123,6 +124,7 @@ export async function getPokemonList(
         types: (detail.types ?? []).map((t: { type: { name: string } }) =>
           capitalize(t.type.name),
         ),
+        obtainingMethod: getObtainingMethod(capitalize(detail.name)),
       };
     }),
   );
@@ -180,6 +182,7 @@ export async function getPokemonById(
           value: s.base_stat,
         }),
       ),
+      obtainingMethod: getObtainingMethod(capitalize(data.name)),
       evolutions,
     };
   } catch {

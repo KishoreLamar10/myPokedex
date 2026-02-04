@@ -3,6 +3,7 @@ export interface PokemonListItem {
   name: string;
   sprite: string;
   types: string[];
+  obtainingMethod?: string;
 }
 
 export interface Evolution {

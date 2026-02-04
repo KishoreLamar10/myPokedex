@@ -386,7 +386,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                     sizes="100vw"
                     className={`absolute left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-300 ${
                       isHovered
-                        ? "top-8 h-[70%] w-[70%]"
+                        ? "-top-16 h-[70%] w-[70%]"
                         : "top-6 h-[40%] w-[40%]"
                     } object-contain`}
                   />
@@ -473,6 +473,16 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                           </span>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {isHovered && pokemon.obtainingMethod && (
+                    <div className="border-t border-zinc-700 pt-1 mb-2">
+                      <p className="text-xs font-semibold text-zinc-300 mb-1">
+                        Obtained
+                      </p>
+                      <p className="text-xs text-zinc-100">
+                        {pokemon.obtainingMethod}
+                      </p>
                     </div>
                   )}
                   {isHovered &&

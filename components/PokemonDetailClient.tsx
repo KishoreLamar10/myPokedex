@@ -780,6 +780,15 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
             </button>
           </div>
 
+          {activeTab === "overview" && pokemon.obtainingMethod && (
+            <div className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
+              <h3 className="mb-2 text-lg font-semibold text-[var(--pokedex-screen)]">
+                Obtained
+              </h3>
+              <p className="text-sm text-zinc-200">{pokemon.obtainingMethod}</p>
+            </div>
+          )}
+
           {detailsLoading && (
             <div className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
               <div className="h-5 w-28 rounded bg-zinc-700/70 animate-pulse" />
@@ -913,39 +922,37 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                     </div>
                   </div>
                 )}
-                <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                    Hidden Ability
-                  </p>
-                  {isMega ? (
-                    <p className="mt-2 text-zinc-400">
-                      Not applicable to Mega forms.
+                {!isMega && (
+                  <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      Hidden Ability
                     </p>
-                  ) : shouldRecommendHiddenAbility ? (
-                    <div className="mt-2 space-y-1">
-                      <p className="font-semibold text-emerald-200">
-                        Yes — {activeAbilities.hidden.join(", ")}
+                    {shouldRecommendHiddenAbility ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="font-semibold text-emerald-200">
+                          Yes — {activeAbilities.hidden.join(", ")}
+                        </p>
+                        {hiddenAbilityLowerChain.length > 0 && (
+                          <p className="text-xs text-emerald-200/80">
+                            Applies to:{" "}
+                            {hiddenAbilityLowerChain
+                              .map((e) => e.name)
+                              .join(", ")}
+                          </p>
+                        )}
+                        {hiddenAbilityNotes.length > 0 && (
+                          <p className="text-xs text-emerald-200/80">
+                            Recommended: {hiddenAbilityNotes.join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-zinc-400">
+                        Hidden Ability isn’t required for this set.
                       </p>
-                      {hiddenAbilityLowerChain.length > 0 && (
-                        <p className="text-xs text-emerald-200/80">
-                          Applies to:{" "}
-                          {hiddenAbilityLowerChain
-                            .map((e) => e.name)
-                            .join(", ")}
-                        </p>
-                      )}
-                      {hiddenAbilityNotes.length > 0 && (
-                        <p className="text-xs text-emerald-200/80">
-                          Recommended: {hiddenAbilityNotes.join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-zinc-400">
-                      Hidden Ability isn’t required for this set.
-                    </p>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-zinc-400">{recommendation.note}</p>
               </div>
             </div>

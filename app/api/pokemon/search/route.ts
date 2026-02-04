@@ -1,3 +1,5 @@
+import { getObtainingMethod } from "@/lib/obtaining";
+
 const POKEAPI = "https://pokeapi.co/api/v2";
 const TOTAL_POKEMON = 1025;
 const RESULT_LIMIT = 10;
@@ -56,6 +58,7 @@ export async function GET(request: Request) {
             types: (data.types ?? []).map((t: { type: { name: string } }) =>
               capitalize(t.type.name),
             ),
+            obtainingMethod: getObtainingMethod(capitalize(data.name)),
           };
         } catch {
           return null;

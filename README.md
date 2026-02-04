@@ -33,19 +33,44 @@ Caught Pokémon are stored in Supabase so your progress persists across devices.
 3. In the Supabase **SQL Editor**, run the script in `supabase/schema.sql` to create the `caught` table and RLS policies.
 4. In **Authentication → Providers**, enable **Anonymous** sign-in so users can use the app without an account.
 
-## CI/CD (GitHub Actions)
+## CI/CD and GitHub Actions
 
-A workflow runs on every push and pull request to `main` (or `master`):
+### What is CI/CD?
 
-- **Lint** — `npm run lint`
-- **Build** — `npm run build`
+- **CI (Continuous Integration)** — Every time you push code (or open a PR), a pipeline runs automatically: install deps, run lint, run tests, build. If something fails, you see it right away instead of after deploy.
+- **CD (Continuous Deployment)** — When CI passes, the app is deployed automatically. For this project, **Vercel** does CD: when you push to `main`, Vercel builds and deploys. So you already have CD once the repo is connected to Vercel.
 
-To make the build pass, add your Supabase env vars as **repository secrets** (Settings → Secrets and variables → Actions):
+### What’s already set up (GitHub Actions)
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+The workflow is in **`.github/workflows/ci.yml`**. It runs on every **push** and **pull request** to `main` or `master`:
 
-If you don’t add them, the build may still succeed locally but can fail in CI when Next.js inlines these values.
+| Step                 | What it does                               |
+| -------------------- | ------------------------------------------ |
+| Checkout             | Gets your repo code                        |
+| Setup Node.js        | Installs Node 20, uses npm cache           |
+| Install dependencies | `npm ci`                                   |
+| Lint                 | `npm run lint` (Next.js ESLint)            |
+| Build                | `npm run build` (Next.js production build) |
+
+If any step fails, the run is marked failed and you see it on the PR or commit.
+
+### How to enable it
+
+1. **Add repository secrets** (so the build can use your Supabase env vars):
+
+   - On GitHub: open your repo → **Settings** → **Secrets and variables** → **Actions**.
+   - Click **New repository secret** and add:
+     - Name: `NEXT_PUBLIC_SUPABASE_URL`, Value: your Supabase project URL (same as in `.env.local`).
+     - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY`, Value: your Supabase anon key (same as in `.env.local`).
+
+2. **Trigger a run** — Push a commit to `main`/`master`, or open a pull request. Then go to the **Actions** tab in your repo to see the workflow run and logs.
+
+### Flow in practice
+
+1. You push to `main` (or open a PR).
+2. GitHub Actions runs lint and build (CI).
+3. If CI passes and the repo is connected to Vercel, Vercel deploys (CD).
+4. If CI fails, fix the issue and push again; no deploy happens until it passes.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
