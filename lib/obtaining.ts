@@ -308,6 +308,7 @@ function buildLocationPokemonMap() {
     }
 
     if (!lastName) continue;
+    const normalizedLastName = normalizeKey(lastName);
 
     [col2, col3].forEach((method) => {
       if (!method) return;
@@ -316,11 +317,11 @@ function buildLocationPokemonMap() {
       locations.forEach((location) => {
         if (!location) return;
         if (!locationMap[location]) locationMap[location] = new Set();
-        locationMap[location].add(normalizeKey(lastName));
-        if (!catchLocationsByName[normalizeKey(lastName)]) {
-          catchLocationsByName[normalizeKey(lastName)] = new Set();
+        locationMap[location].add(normalizedLastName);
+        if (!catchLocationsByName[normalizedLastName]) {
+          catchLocationsByName[normalizedLastName] = new Set();
         }
-        catchLocationsByName[normalizeKey(lastName)].add(location);
+        catchLocationsByName[normalizedLastName].add(location);
       });
     });
   }
@@ -337,6 +338,7 @@ function buildLocationPokemonMap() {
     }
 
     if (!lastName) continue;
+    const normalizedLastName = normalizeKey(lastName);
 
     [col2, col3].forEach((method) => {
       if (!method) return;
@@ -346,7 +348,7 @@ function buildLocationPokemonMap() {
       if (!locations || locations.size === 0) return;
       locations.forEach((location) => {
         if (!locationMap[location]) locationMap[location] = new Set();
-        locationMap[location].add(normalizeKey(lastName));
+        locationMap[location].add(normalizedLastName);
       });
     });
   }
