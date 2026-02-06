@@ -13,19 +13,41 @@ import { PokedexGrid } from "@/components/PokedexGrid";
 import { TOTAL_POKEMON } from "@/lib/pokeapi";
 import { getEggMoveEntry } from "@/lib/eggMoves";
 import { getHiddenAbilityRecommendation } from "@/lib/hiddenAbilities";
+import {
+  getObtainingLocationPokemonMap,
+  normalizePokemonKey,
+} from "@/lib/obtaining";
+import { useCaught } from "@/components/CaughtProvider";
 import type { PokemonListItem } from "@/types/pokemon";
 
 const BATCH_SIZE = 150;
 
-interface PokedexWithLoadMoreProps {
-  initialList: PokemonListItem[];
+function normalizeObtainingFilter(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\u00a0/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
-export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
+interface PokedexWithLoadMoreProps {
+  initialList: PokemonListItem[];
+  obtainingLocations: string[];
+}
+
+export function PokedexWithLoadMore({
+  initialList,
+  obtainingLocations,
+}: PokedexWithLoadMoreProps) {
+  const { caughtIds } = useCaught();
   const [list, setList] = useState<PokemonListItem[]>(initialList);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationSearch, setLocationSearch] = useState("");
+  const [nameIdMap, setNameIdMap] = useState<Map<string, number> | null>(null);
   const [targetCount, setTargetCount] = useState<number | null>(null);
   const [prefetchDone, setPrefetchDone] = useState(false);
   const [searchResults, setSearchResults] = useState<PokemonListItem[]>([]);
@@ -75,6 +97,94 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
 
   const baseList = useMemo(() => list.filter((p) => p.id <= 1025), [list]);
 
+  const locationPokemonMap = useMemo(
+    () => getObtainingLocationPokemonMap(),
+    [],
+  );
+
+  const locationPokemonSets = useMemo(() => {
+    const sets: Record<string, Set<string>> = {};
+    Object.entries(locationPokemonMap).forEach(([location, names]) => {
+      sets[location] = new Set(names);
+    });
+    return sets;
+  }, [locationPokemonMap]);
+
+  const applyObtainingFilter = useCallback(
+    (items: PokemonListItem[]) => {
+      if (!selectedLocation) return items;
+      const names = locationPokemonSets[selectedLocation];
+      if (!names || names.size === 0) return [];
+      return items.filter((pokemon) => {
+        const key = normalizePokemonKey(pokemon.name);
+        return names.has(key);
+      });
+    },
+    [selectedLocation, locationPokemonSets],
+  );
+
+  const filteredLocations = useMemo(() => {
+    const query = normalizeObtainingFilter(locationSearch);
+    if (!query) return obtainingLocations;
+    return obtainingLocations.filter((location) =>
+      normalizeObtainingFilter(location).includes(query),
+    );
+  }, [locationSearch, obtainingLocations]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/pokemon/names")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: Array<{ id: number; name: string }>) => {
+        if (!active) return;
+        const map = new Map<string, number>();
+        data.forEach((item) => {
+          map.set(normalizePokemonKey(item.name), item.id);
+        });
+        setNameIdMap(map);
+      })
+      .catch(() => {
+        if (active) setNameIdMap(new Map());
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const caughtIdSet = useMemo(() => new Set(caughtIds), [caughtIds]);
+
+  const nameToId = useMemo(() => nameIdMap ?? new Map(), [nameIdMap]);
+
+  const locationCompletion = useMemo(() => {
+    if (!nameIdMap) return {} as Record<string, boolean>;
+    const completion: Record<string, boolean> = {};
+    obtainingLocations.forEach((location) => {
+      const names = locationPokemonMap[location] ?? [];
+      if (names.length === 0) {
+        completion[location] = false;
+        return;
+      }
+
+      for (const nameKey of names) {
+        const id = nameToId.get(nameKey);
+        if (!id) {
+          completion[location] = false;
+          return;
+        }
+        if (!caughtIdSet.has(id)) {
+          completion[location] = false;
+          return;
+        }
+      }
+
+      completion[location] = true;
+    });
+    return completion;
+  }, [obtainingLocations, locationPokemonMap, nameToId, caughtIdSet]);
+
+  const selectedLocationComplete =
+    selectedLocation && locationCompletion[selectedLocation];
+
   const searchFiltered = useMemo(() => {
     const q = deferredSearch.trim();
     if (!q) return [] as PokemonListItem[];
@@ -88,19 +198,27 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
     if (filters.hasMega) {
       results = results.filter((p) => metaById[p.id]?.hasMega);
     }
-    return results;
-  }, [deferredSearch, searchResults, filters, metaById]);
+    return applyObtainingFilter(results);
+  }, [deferredSearch, searchResults, filters, metaById, applyObtainingFilter]);
 
   const filteredList = useMemo(() => {
     const q = deferredSearch.trim();
-    if (!q) return baseList;
+    if (!q) return applyObtainingFilter(baseList);
     return searchFiltered;
-  }, [baseList, deferredSearch, searchFiltered]);
+  }, [baseList, deferredSearch, searchFiltered, applyObtainingFilter]);
 
   useEffect(() => {
     setSearchQuery(initialParams.q);
     setTargetCount(initialParams.count);
   }, [initialParams]);
+
+  useEffect(() => {
+    if (selectedLocation) {
+      setTargetCount(TOTAL_POKEMON);
+      return;
+    }
+    setTargetCount(initialParams.count);
+  }, [selectedLocation, initialParams.count]);
 
   useEffect(() => {
     if (!targetCount || !hasMore || loading) return;
@@ -279,6 +397,86 @@ export function PokedexWithLoadMore({ initialList }: PokedexWithLoadMoreProps) {
           >
             ✕
           </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setLocationOpen((prev) => !prev)}
+            className={`flex items-center gap-2 rounded-lg border-2 bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 ${
+              selectedLocationComplete
+                ? "border-emerald-400/80 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
+                : "border-[var(--pokedex-border)] hover:border-[var(--pokedex-red)]/70"
+            }`}
+            aria-controls="location-filter-panel"
+          >
+            <span>Filter by location</span>
+            <span className="text-xs text-zinc-400">
+              {selectedLocation ? `• ${selectedLocation}` : "• All"}
+            </span>
+            <span className="text-zinc-400">{locationOpen ? "▾" : "▸"}</span>
+          </button>
+          {selectedLocation && (
+            <button
+              type="button"
+              onClick={() => setSelectedLocation("")}
+              className="text-xs font-semibold text-zinc-300 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {locationOpen && (
+          <div id="location-filter-panel" className="space-y-3">
+            <input
+              type="text"
+              aria-label="Search locations"
+              placeholder="Search locations..."
+              value={locationSearch}
+              onChange={(e) => setLocationSearch(e.target.value)}
+              className={`w-full rounded-lg border-2 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition focus:ring-2 focus:ring-[var(--pokedex-red)]/50 ${
+                selectedLocationComplete
+                  ? "border-emerald-400/80"
+                  : "border-[var(--pokedex-border)] focus:border-[var(--pokedex-red)]"
+              }`}
+            />
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
+              <button
+                type="button"
+                onClick={() => setSelectedLocation("")}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
+                  !selectedLocation
+                    ? "border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white"
+                    : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
+                }`}
+              >
+                All Locations
+              </button>
+              {filteredLocations.map((location) => (
+                <button
+                  key={location}
+                  type="button"
+                  onClick={() => setSelectedLocation(location)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
+                    selectedLocation === location
+                      ? "border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white"
+                      : locationCompletion[location]
+                        ? "border-emerald-400/80 bg-emerald-500/10 text-emerald-100"
+                        : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
+                  }`}
+                >
+                  {location}
+                  {locationCompletion[location] ? " ✓" : ""}
+                </button>
+              ))}
+              {filteredLocations.length === 0 && (
+                <span className="text-xs text-zinc-500">
+                  No locations found.
+                </span>
+              )}
+            </div>
+          </div>
         )}
       </div>
       {deferredSearch.trim() && (
