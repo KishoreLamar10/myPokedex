@@ -1,0 +1,296 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { fetchUserTeams, createTeam, updateTeam, deleteTeam } from "@/lib/supabase/teams";
+import { getAllPokemonForSelector, getPokemonById } from "@/lib/pokeapi";
+import { PokemonSelector } from "@/components/TeamBuilder/PokemonSelector";
+import { TeamSlot } from "@/components/TeamBuilder/TeamSlot";
+import { EditPokemonModal } from "@/components/TeamBuilder/EditPokemonModal";
+import type { Team, TeamMember } from "@/types/team";
+import { DEFAULT_EVS, DEFAULT_IVS } from "@/types/team";
+import { useCaught } from "@/components/CaughtProvider";
+import type { PokemonListItem } from "@/types/pokemon";
+
+export default function TeamBuilderPage() {
+  const { userId } = useCaught();
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  // Modal State
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+    const loadTeams = async () => {
+      try {
+        const supabase = createClient();
+        const data = await fetchUserTeams(supabase, userId);
+        setTeams(data);
+      } catch (err) {
+        setError("Failed to load teams");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTeams();
+  }, [userId]);
+
+  const handleCreateTeam = async () => {
+    if (!userId || creating) return;
+    setCreating(true);
+    try {
+      const supabase = createClient();
+      const newTeam = await createTeam(supabase, userId, `Team ${teams.length + 1}`);
+      setTeams([newTeam, ...teams]);
+    } catch (err) {
+      setError("Failed to create team");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteTeam = async (teamId: string) => {
+    if (!confirm("Are you sure you want to delete this team?")) return;
+    try {
+      const supabase = createClient();
+      await deleteTeam(supabase, teamId);
+      setTeams(teams.filter((t) => t.id !== teamId));
+    } catch (err) {
+      alert("Failed to delete team");
+    }
+  };
+
+  const handleUpdateName = async (teamId: string, newName: string) => {
+    // Optimistic update
+    setTeams(teams.map(t => t.id === teamId ? { ...t, name: newName } : t));
+    try {
+      const supabase = createClient();
+      await updateTeam(supabase, teamId, { name: newName });
+    } catch (err) {
+      // Revert on failure (could be improved with more sophisticated state management)
+      console.error("Failed to update name");
+    }
+  };
+
+  // --- TEAM MEMBER MANAGEMENT --- //
+
+  const openSelector = (teamId: string, slotIndex: number) => {
+    setActiveTeamId(teamId);
+    setActiveSlotIndex(slotIndex);
+    setSelectorOpen(true);
+  };
+
+  const handleSelectPokemon = async (pokemon: PokemonListItem) => {
+    if (!activeTeamId || activeSlotIndex === null) return;
+
+    let availableAbilities: { name: string; isHidden: boolean }[] = [];
+    try {
+        const details = await getPokemonById(pokemon.id);
+        if (details) {
+            availableAbilities = details.abilities;
+        }
+    } catch (e) {
+        console.error("Failed to fetch details for abilities", e);
+    }
+
+    const newMember: TeamMember = {
+      id: pokemon.id,
+      instanceId: crypto.randomUUID(),
+      name: pokemon.name,
+      sprite: pokemon.sprite,
+      types: pokemon.types,
+      ability: availableAbilities[0]?.name || "",
+      availableAbilities: availableAbilities,
+      nature: "",
+      item: "",
+      moves: [],
+      ivs: DEFAULT_IVS,
+      evs: DEFAULT_EVS,
+      shiny: false,
+    };
+
+    updateTeamMember(activeTeamId, activeSlotIndex, newMember);
+    setSelectorOpen(false);
+    
+    // Optional: Open editor immediately after adding
+    setEditingMember(newMember);
+    setEditorOpen(true);
+  };
+
+  const handleRemoveMember = (teamId: string, slotIndex: number) => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return;
+
+    const newPokemon = [...team.pokemon];
+    newPokemon[slotIndex] = null as any; // We'll filter/handle sparse arrays, or standard is just remove
+    // Actually, keeping array size 6 is easier for UI slots
+    // Let's assume team.pokemon is array of size up to 6, or we pad it.
+    // For simpler DB, let's keep it as is and just splice or nullify.
+    // My types say TeamMember[], let's assume valid members.
+    // Making it easier: UI expects 6 slots. We can store just the array of actual members.
+    // But then index logic is tricky if we want fixed slots.
+    // Let's explicitly store nulls? No, JSONB usually cleans sparse.
+    // Let's just remove it from the array for now.
+    
+    // Wait, simpler: just remove it from the list.
+    const updatedMembers = team.pokemon.filter((_, i) => i !== slotIndex);
+    saveTeamMembers(teamId, updatedMembers);
+  };
+
+  const openEditor = (member: TeamMember, teamId: string, slotIndex: number) => {
+    setEditingMember(member);
+    setActiveTeamId(teamId);
+    setActiveSlotIndex(slotIndex);
+    setEditorOpen(true);
+  };
+
+  const handleSaveMember = (updatedMember: TeamMember) => {
+    if (!activeTeamId || activeSlotIndex === null) return;
+    updateTeamMember(activeTeamId, activeSlotIndex, updatedMember);
+  };
+
+  const updateTeamMember = async (teamId: string, index: number, member: TeamMember) => {
+     const team = teams.find(t => t.id === teamId);
+     if (!team) return;
+
+     const newPokemon = [...(team.pokemon || [])];
+     // Handle cases where array might be shorter than index (if we allow adding to empty slots at end)
+     // logic: if I click slot 5 but only have 2 pokemon?
+     // Actually, let's enforce: you add to the list. Detailed slot logic (Drag drop) is harder.
+     // For now: Simple list. "Add" appends.
+     // Wait, my UI had 6 specific slots.
+     // If I stick to "List" it's easier. If I stick to "Slots", I need to represent empty slots in DB or fill with null.
+     // Let's do: "Append" for now if slot is empty, or "Replace" if edit.
+     // My UI rendered 6 slots using array index.
+     
+     if (index >= newPokemon.length) {
+         newPokemon.push(member);
+     } else {
+         newPokemon[index] = member;
+     }
+
+     saveTeamMembers(teamId, newPokemon);
+  };
+
+  const saveTeamMembers = async (teamId: string, newPokemon: TeamMember[]) => {
+      // Optimistic
+      setTeams(teams.map(t => t.id === teamId ? { ...t, pokemon: newPokemon } : t));
+      
+      try {
+          const supabase = createClient();
+          await updateTeam(supabase, teamId, { pokemon: newPokemon });
+      } catch (err) {
+          console.error("Failed to save team members");
+          // Revert logic needed here in robust app
+      }
+  };
+
+
+  if (loading) {
+     return (
+      <div className="min-h-screen bg-zinc-900 flex items-center justify-center">
+        <div className="text-zinc-400">Loading Teams...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center gap-4">
+              <Link href="/pokedex" className="px-3 py-1.5 bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white transition text-sm font-medium">
+                  ← Back to Pokedex
+              </Link>
+              <h1 className="text-3xl font-bold text-[var(--pokedex-screen)]">Team Builder</h1>
+          </div>
+          <button
+            onClick={handleCreateTeam}
+            disabled={creating}
+            className="px-4 py-2 bg-[var(--pokedex-red)] text-white rounded-lg font-semibold hover:brightness-110 disabled:opacity-50"
+          >
+            {creating ? "Creating..." : "+ New Team"}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-900/50 text-red-200 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-6">
+          {teams.length === 0 ? (
+            <div className="text-center py-12 bg-zinc-800/50 rounded-xl border-2 border-dashed border-zinc-700">
+              <p className="text-zinc-400 mb-4">No teams created yet.</p>
+              <button
+                onClick={handleCreateTeam}
+                className="text-[var(--pokedex-screen)] hover:underline"
+              >
+                Create your first team
+              </button>
+            </div>
+          ) : (
+            teams.map((team) => (
+              <div key={team.id} className="bg-zinc-800 rounded-xl p-4 border border-zinc-700 shadow-lg relative">
+                <div className="flex justify-between items-center mb-4 pb-4 border-b border-zinc-700">
+                    <input
+                        type="text"
+                        value={team.name}
+                        onChange={(e) => handleUpdateName(team.id, e.target.value)}
+                        className="bg-transparent text-xl font-bold focus:outline-none focus:border-b border-[var(--pokedex-screen)] w-full max-w-md"
+                    />
+                    <button
+                        onClick={() => handleDeleteTeam(team.id)}
+                        className="text-zinc-400 hover:text-red-400 text-sm px-3 py-1"
+                    >
+                        Delete
+                    </button>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => {
+                        const member = team.pokemon?.[i] || null;
+                        return (
+                             <TeamSlot 
+                                key={member ? member.instanceId : `empty-${i}`}
+                                member={member}
+                                onAdd={() => openSelector(team.id, i)}
+                                onEdit={() => member && openEditor(member, team.id, i)}
+                                onRemove={() => handleRemoveMember(team.id, i)}
+                                onUpdate={(updated) => updateTeamMember(team.id, i, updated)}
+                             />
+                        )
+                    })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <PokemonSelector 
+        isOpen={selectorOpen}
+        onClose={() => setSelectorOpen(false)}
+        onSelect={handleSelectPokemon}
+      />
+
+      {editingMember && (
+          <EditPokemonModal
+             isOpen={editorOpen}
+             onClose={() => setEditorOpen(false)}
+             member={editingMember}
+             onSave={handleSaveMember}
+          />
+      )}
+    </div>
+  );
+}
