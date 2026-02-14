@@ -29,6 +29,7 @@ Weedle,Catch in Gale Forest
 Kakuna,Evolve Weedle at Lv. 7 or above
 Beedrill,Evolve Kakuna at Lv. 10 or above
 Pidgey,Catch on Route 1
+Pidgey,Catch on Route 2
 Pidgeotto,Evolve Pidgey at Lv. 18 or above
 Pidgeot,Evolve Pidgeotto at Lv. 36 or above
 Rattata,Catch in Fortulose Manor
@@ -704,6 +705,7 @@ Mightyena,Evolve Poochyena at Lv. 18 or above
 ,
 ,
 Zigzagoon,Catch on Route 1
+Zigzagoon,Catch on Route 2
 ,
 ,
 Linoone,Evolve Zigzagoon at Lv. 20 or above
@@ -802,7 +804,7 @@ Manectric,Evolve Electrike at Lv. 26 or above
 Plusle,Catch in the tall grass on Route 2
 ,
 ,
-Minun,
+Minun,Catch in the tall grass on Route 2
 ,
 ,
 Volbeat,Catch on Route 13
@@ -1490,6 +1492,7 @@ Bunnelby,Catch on Route 1
 ,
 Diggersby,Evolve Bunnelby at Lv. 20 or above
 Fletchling,Catch on Route 1
+Fletchling,Catch on Route 2
 Fletchinder,Evolve Fletchling at Lv. 17 or above
 Talonflame,Evolve Fletchinder at Lv. 35 or above
 Scatterbug,Breed Spewpa or Vivillon in Lagoona Day Care
