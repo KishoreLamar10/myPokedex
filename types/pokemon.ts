@@ -50,7 +50,7 @@ export interface MegaForm {
 export interface PokemonDetail extends PokemonListItem {
   height: number;
   weight: number;
-  abilities: string[];
+  abilities: { name: string; isHidden: boolean }[];
   stats: { name: string; value: number }[];
   evolutions?: Evolution[];
 }

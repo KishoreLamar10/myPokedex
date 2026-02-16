@@ -76,6 +76,12 @@ export function UserMenu() {
 
   return (
     <div ref={menuRef} className="relative flex items-center gap-2">
+      <a
+        href="/team-builder"
+        className="rounded-lg border border-zinc-700/80 bg-zinc-800/70 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+      >
+        Team Builder
+      </a>
       <button
         type="button"
         onClick={() => setShowStats((prev) => !prev)}

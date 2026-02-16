@@ -10,7 +10,7 @@ import { getObtainingMethod } from "@/lib/obtaining";
 const POKEAPI = "https://pokeapi.co/api/v2";
 
 /** Total Pokémon in PokeAPI (used for Load more). */
-export const TOTAL_POKEMON = 1025;
+export const TOTAL_POKEMON = 1400;
 
 const SMOGON_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const smogonCache = new Map<string, { value: any; expiresAt: number }>();
@@ -112,22 +112,33 @@ export async function getPokemonList(
   if (!res.ok) throw new Error("Failed to fetch Pokémon list");
   const data = await res.json();
 
-  const results = await Promise.all(
-    data.results.map(async (p: { url: string }) => {
-      const id = parseInt(p.url.split("/").filter(Boolean).pop() ?? "0", 10);
-      const detailRes = await fetch(p.url, { next: { revalidate: 3600 } });
-      const detail = await detailRes.json();
-      return {
-        id,
-        name: capitalize(detail.name),
-        sprite: detail.sprites?.front_default ?? "",
-        types: (detail.types ?? []).map((t: { type: { name: string } }) =>
-          capitalize(t.type.name),
-        ),
-        obtainingMethod: getObtainingMethod(capitalize(detail.name)),
-      };
-    }),
-  );
+  const results: PokemonListItem[] = [];
+  const chunkSize = 20;
+
+  for (let i = 0; i < data.results.length; i += chunkSize) {
+    const chunk = data.results.slice(i, i + chunkSize);
+    const chunkResults = await Promise.all(
+      chunk.map(async (p: { url: string }) => {
+        const id = parseInt(p.url.split("/").filter(Boolean).pop() ?? "0", 10);
+        const detailRes = await fetch(p.url, { next: { revalidate: 3600 } });
+        if (!detailRes.ok) return null;
+        const detail = await detailRes.json();
+        return {
+          id,
+          name: capitalize(detail.name),
+          sprite: detail.sprites?.front_default ?? "",
+          types: (detail.types ?? []).map((t: { type: { name: string } }) =>
+            capitalize(t.type.name),
+          ),
+          obtainingMethod: getObtainingMethod(capitalize(detail.name)),
+        };
+      }),
+    );
+    results.push(
+      ...(chunkResults.filter(Boolean) as PokemonListItem[]),
+    );
+  }
+
   return results;
 }
 
@@ -173,8 +184,10 @@ export async function getPokemonById(
       height: data.height ?? 0,
       weight: data.weight ?? 0,
       abilities: (data.abilities ?? []).map(
-        (a: { ability: { name: string } }) =>
-          capitalize(a.ability.name.replace(/-/g, " ")),
+        (a: { ability: { name: string }; is_hidden: boolean }) => ({
+          name: capitalize(a.ability.name.replace(/-/g, " ")),
+          isHidden: a.is_hidden,
+        }),
       ),
       stats: (data.stats ?? []).map(
         (s: { stat: { name: string }; base_stat: number }) => ({
@@ -460,4 +473,41 @@ export async function getPokemonExtended(
   } catch {
     return null;
   }
+}
+
+export async function getAllItems(): Promise<{ name: string; url: string }[]> {
+  try {
+    const res = await fetch(`${POKEAPI}/item?limit=2000&offset=0`, {
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results.map((item: { name: string; url: string }) => ({
+      name: capitalize(item.name.replace(/-/g, " ")),
+      url: item.url,
+    }));
+  } catch {
+    return [];
+  }
+
+}
+
+export async function getAllMoves(): Promise<{ name: string; url: string }[]> {
+  try {
+    const res = await fetch(`${POKEAPI}/move?limit=2000&offset=0`, {
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.results.map((move: { name: string; url: string }) => ({
+      name: capitalize(move.name.replace(/-/g, " ")),
+      url: move.url,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllPokemonForSelector(): Promise<PokemonListItem[]> {
+  return getPokemonList(TOTAL_POKEMON, 0);
 }
