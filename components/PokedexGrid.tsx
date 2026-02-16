@@ -6,31 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCaught } from "@/components/CaughtProvider";
 import type { PokemonListItem } from "@/types/pokemon";
-
-const TYPE_COLORS: Record<string, string> = {
-  Normal: "bg-amber-100 text-amber-900",
-  Fire: "bg-orange-500 text-white",
-  Water: "bg-blue-500 text-white",
-  Electric: "bg-yellow-400 text-yellow-950",
-  Grass: "bg-green-500 text-white",
-  Ice: "bg-cyan-300 text-cyan-950",
-  Fighting: "bg-red-700 text-white",
-  Poison: "bg-purple-600 text-white",
-  Ground: "bg-amber-700 text-white",
-  Flying: "bg-indigo-300 text-indigo-950",
-  Psychic: "bg-pink-500 text-white",
-  Bug: "bg-lime-600 text-white",
-  Rock: "bg-stone-600 text-white",
-  Ghost: "bg-violet-800 text-white",
-  Dragon: "bg-indigo-600 text-white",
-  Dark: "bg-zinc-800 text-white",
-  Steel: "bg-zinc-400 text-zinc-900",
-  Fairy: "bg-pink-300 text-pink-950",
-};
-
-function getTypeClass(type: string) {
-  return TYPE_COLORS[type] ?? "bg-zinc-500 text-white";
-}
+import { getTypeClass } from "@/lib/typeEffectiveness";
 
 interface PokedexGridProps {
   list: PokemonListItem[];
@@ -411,20 +387,22 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                     >
                       #{String(pokemon.id).padStart(3, "0")}
                     </span>
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggle(e, pokemon.id)}
-                      className={`rounded-full font-semibold transition ${
-                        isHovered ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm"
-                      } ${
-                        caught
-                          ? "bg-[var(--pokedex-screen)] text-zinc-900"
-                          : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
-                      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70`}
-                      aria-label={`Toggle caught for ${pokemon.name}`}
-                    >
-                      {caught ? "Caught" : "Catch"}
-                    </button>
+                    {pokemon.id <= 1025 && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggle(e, pokemon.id)}
+                        className={`rounded-full font-semibold transition ${
+                          isHovered ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm"
+                        } ${
+                          caught
+                            ? "bg-[var(--pokedex-screen)] text-zinc-900"
+                            : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
+                        } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70`}
+                        aria-label={`Toggle caught for ${pokemon.name}`}
+                      >
+                        {caught ? "Caught" : "Catch"}
+                      </button>
+                    )}
                   </div>
                   <p
                     className={`text-center font-semibold text-white transition-all duration-300 drop-shadow-lg ${

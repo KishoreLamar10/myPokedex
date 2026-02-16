@@ -3,6 +3,9 @@ export interface PokemonListItem {
   name: string;
   sprite: string;
   types: string[];
+  height?: number;
+  weight?: number;
+  baseStatTotal?: number;
   obtainingMethod?: string;
 }
 
@@ -27,10 +30,10 @@ export interface PokemonExtended {
     hidden: string[];
   };
   evolutions: Evolution[];
-  megaForms?: MegaForm[];
+  varieties?: PokemonVariety[];
 }
 
-export interface MegaForm {
+export interface PokemonVariety {
   id: number;
   slug: string;
   name: string;

@@ -7,12 +7,15 @@ import {
   useEffect,
   useState,
 } from "react";
-import { fetchCaughtIds, toggleCaughtInDb } from "@/lib/supabase/caught";
+import { fetchCaughtIds, fetchCaughtHistory, toggleCaughtInDb } from "@/lib/supabase/caught";
 import { createClient } from "@/lib/supabase/client";
 import { AuthForm } from "@/components/AuthForm";
 
+type CatchRecord = { pokemonId: number; caughtAt: string };
+
 type CaughtContextValue = {
   caughtIds: number[];
+  caughtHistory: CatchRecord[];
   toggleCaught: (pokemonId: number) => Promise<void>;
   loading: boolean;
   error: string | null;
@@ -29,6 +32,7 @@ export function useCaught() {
 
 export function CaughtProvider({ children }: { children: React.ReactNode }) {
   const [caughtIds, setCaughtIds] = useState<number[]>([]);
+  const [caughtHistory, setCaughtHistory] = useState<CatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -53,8 +57,18 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
 
         setUserId(user.id);
         setAuthenticated(true);
+        
+        // Critical: load main caught IDs
         const ids = await fetchCaughtIds(supabase, user.id);
         if (!cancelled) setCaughtIds(ids);
+
+        // Non-critical: load catch history (migration might be pending)
+        try {
+          const history = await fetchCaughtHistory(supabase, user.id);
+          if (!cancelled) setCaughtHistory(history);
+        } catch (hErr) {
+          console.warn("Caught history load failed (non-critical):", hErr);
+        }
       } catch (e) {
         if (!cancelled) {
           setError(
@@ -77,17 +91,25 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
       try {
         const supabase = createClient();
         const currentlyCaught = caughtIds.includes(pokemonId);
-        const newCaught = await toggleCaughtInDb(
+        const newCaughtState = await toggleCaughtInDb(
           supabase,
           userId,
           pokemonId,
           currentlyCaught,
         );
-        setCaughtIds((prev) =>
-          newCaught
-            ? [...prev, pokemonId].sort((a, b) => a - b)
-            : prev.filter((id) => id !== pokemonId),
-        );
+
+        if (newCaughtState) {
+          setCaughtIds((prev) => [...prev, pokemonId].sort((a, b) => a - b));
+          setCaughtHistory((prev) => [
+            { pokemonId, caughtAt: new Date().toISOString() },
+            ...prev,
+          ]);
+        } else {
+          setCaughtIds((prev) => prev.filter((id) => id !== pokemonId));
+          setCaughtHistory((prev) =>
+            prev.filter((item) => item.pokemonId !== pokemonId),
+          );
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to update");
       }
@@ -97,6 +119,7 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
 
   const value: CaughtContextValue = {
     caughtIds,
+    caughtHistory,
     toggleCaught,
     loading,
     error,

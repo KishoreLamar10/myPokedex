@@ -29,8 +29,14 @@ export function PokemonSearch() {
         currentParams.delete("q");
       }
       
-      // Navigate to /pokedex with updated params, preserving existing ones like 'count'
-      router.replace(`/pokedex?${currentParams.toString()}`, { scroll: false });
+      const isPokedex = window.location.pathname === "/pokedex";
+      const targetUrl = `/pokedex?${currentParams.toString()}`;
+      
+      if (isPokedex) {
+        router.replace(targetUrl, { scroll: false });
+      } else {
+        router.push(targetUrl);
+      }
     }, 300);
 
     return () => clearTimeout(timeout);
@@ -51,10 +57,14 @@ export function PokemonSearch() {
           type="button"
           onClick={() => {
             setQuery("");
-            // Immediate clear update to feel responsive
             const params = new URLSearchParams(searchParams.toString());
             params.delete("q");
-            router.replace(`/pokedex?${params.toString()}`, { scroll: false });
+            const targetUrl = `/pokedex?${params.toString()}`;
+            if (window.location.pathname === "/pokedex") {
+              router.replace(targetUrl, { scroll: false });
+            } else {
+              router.push(targetUrl);
+            }
           }}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 w-6 h-6 flex items-center justify-center rounded-full hover:bg-zinc-700"
           aria-label="Clear search"

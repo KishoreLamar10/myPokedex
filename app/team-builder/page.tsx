@@ -8,6 +8,7 @@ import { getAllPokemonForSelector, getPokemonById } from "@/lib/pokeapi";
 import { PokemonSelector } from "@/components/TeamBuilder/PokemonSelector";
 import { TeamSlot } from "@/components/TeamBuilder/TeamSlot";
 import { EditPokemonModal } from "@/components/TeamBuilder/EditPokemonModal";
+import { TeamCoverage } from "@/components/TeamCoverage";
 import type { Team, TeamMember } from "@/types/team";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/types/team";
 import { useCaught } from "@/components/CaughtProvider";
@@ -203,13 +204,10 @@ export default function TeamBuilderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-zinc-100 p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-              <Link href="/pokedex" className="px-3 py-1.5 bg-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-700 hover:text-white transition text-sm font-medium">
-                  ← Back to Pokedex
-              </Link>
               <h1 className="text-3xl font-bold text-[var(--pokedex-screen)]">Team Builder</h1>
           </div>
           <button
@@ -270,6 +268,9 @@ export default function TeamBuilderPage() {
                              />
                         )
                     })}
+                  </div>
+                <div className="mt-6 border-t border-zinc-700/50 pt-6">
+                  <TeamCoverage team={team.pokemon || []} />
                 </div>
               </div>
             ))

@@ -22,6 +22,27 @@ import type { PokemonListItem } from "@/types/pokemon";
 
 const BATCH_SIZE = 150;
 
+const POKEMON_TYPES = [
+  "Normal", "Fire", "Water", "Electric", "Grass", "Ice",
+  "Fighting", "Poison", "Ground", "Flying", "Psychic",
+  "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy"
+];
+
+const GENERATIONS = [
+  { label: "All Gen", start: 1, end: 1025 },
+  { label: "Gen I", start: 1, end: 151 },
+  { label: "Gen II", start: 152, end: 251 },
+  { label: "Gen III", start: 252, end: 386 },
+  { label: "Gen IV", start: 387, end: 493 },
+  { label: "Gen V", start: 494, end: 649 },
+  { label: "Gen VI", start: 650, end: 721 },
+  { label: "Gen VII", start: 722, end: 809 },
+  { label: "Gen VIII", start: 810, end: 905 },
+  { label: "Gen IX", start: 906, end: 1025 },
+];
+
+type SortOption = "id" | "bst" | "weight" | "height" | "name";
+
 function normalizeObtainingFilter(value: string) {
   return value
     .toLowerCase()
@@ -44,6 +65,7 @@ export function PokedexWithLoadMore({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
   const [selectedLocation, setSelectedLocation] = useState("");
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
@@ -52,6 +74,9 @@ export function PokedexWithLoadMore({
   const [prefetchDone, setPrefetchDone] = useState(false);
   const [searchResults, setSearchResults] = useState<PokemonListItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [selectedGen, setSelectedGen] = useState<number>(0); // 0 = All
+  const [sortBy, setSortBy] = useState<SortOption>("id");
   const [filters, setFilters] = useState({
     hasMega: false,
     haRecommended: false,
@@ -66,6 +91,11 @@ export function PokedexWithLoadMore({
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
+
+  useEffect(() => {
+    const q = searchParams.get("q") ?? "";
+    setSearchQuery(q);
+  }, [searchParams]);
 
   const initialParams = useMemo(() => {
     const params = new URLSearchParams(searchParamsString);
@@ -185,27 +215,69 @@ export function PokedexWithLoadMore({
   const selectedLocationComplete =
     selectedLocation && locationCompletion[selectedLocation];
 
-  const searchFiltered = useMemo(() => {
+  const processedList = useMemo(() => {
+    let items = [...baseList];
+
+    // Search filter (handles results from search API)
     const q = deferredSearch.trim();
-    if (!q) return [] as PokemonListItem[];
-    let results = searchResults;
+    if (q) {
+      items = searchResults;
+    }
+
+    // Type filter
+    if (selectedType) {
+      items = items.filter((p) => p.types.includes(selectedType));
+    }
+
+    // Generation filter
+    if (selectedGen > 0) {
+      const gen = GENERATIONS[selectedGen];
+      items = items.filter((p) => p.id >= gen.start && p.id <= gen.end);
+    }
+
+    // Obtaining filter
+    items = applyObtainingFilter(items);
+
+    // Meta filters
     if (filters.haRecommended) {
-      results = results.filter((p) => getHiddenAbilityRecommendation(p.name));
+      items = items.filter((p) => getHiddenAbilityRecommendation(p.name));
     }
     if (filters.eggMoves) {
-      results = results.filter((p) => getEggMoveEntry(p.name));
+      items = items.filter((p) => getEggMoveEntry(p.name));
     }
     if (filters.hasMega) {
-      results = results.filter((p) => metaById[p.id]?.hasMega);
+      items = items.filter((p) => metaById[p.id]?.hasMega);
     }
-    return applyObtainingFilter(results);
-  }, [deferredSearch, searchResults, filters, metaById, applyObtainingFilter]);
 
-  const filteredList = useMemo(() => {
-    const q = deferredSearch.trim();
-    if (!q) return applyObtainingFilter(baseList);
-    return searchFiltered;
-  }, [baseList, deferredSearch, searchFiltered, applyObtainingFilter]);
+    // Sorting
+    items.sort((a, b) => {
+      switch (sortBy) {
+        case "bst":
+          return (b.baseStatTotal || 0) - (a.baseStatTotal || 0);
+        case "weight":
+          return (b.weight || 0) - (a.weight || 0);
+        case "height":
+          return (b.height || 0) - (a.height || 0);
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "id":
+        default:
+          return a.id - b.id;
+      }
+    });
+
+    return items;
+  }, [
+    baseList,
+    deferredSearch,
+    searchResults,
+    selectedType,
+    selectedGen,
+    applyObtainingFilter,
+    filters,
+    metaById,
+    sortBy,
+  ]);
 
   useEffect(() => {
     setSearchQuery(initialParams.q);
@@ -340,14 +412,14 @@ export function PokedexWithLoadMore({
           eventType: "search",
           payload: {
             query: deferredSearch.trim(),
-            resultsCount: filteredList.length,
+            resultsCount: processedList.length,
           },
         }),
       }).catch(() => {});
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [deferredSearch, filteredList.length]);
+  }, [deferredSearch, processedList.length]);
 
   useEffect(() => {
     if (!filters.hasMega) return;
@@ -379,26 +451,61 @@ export function PokedexWithLoadMore({
 
   return (
     <div className="space-y-6">
-      <div className="relative">
-        <input
-          type="text"
-          aria-label="Search Pokémon by name"
-          placeholder="Search Pokémon by name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border-2 border-[var(--pokedex-border)] bg-zinc-800 px-4 py-2.5 text-white placeholder-zinc-500 outline-none transition focus:border-[var(--pokedex-red)] focus:ring-2 focus:ring-[var(--pokedex-red)]/50"
-        />
-        {searchQuery && (
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Sort Dropdown */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          className="rounded-lg border-2 border-[var(--pokedex-border)] bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 outline-none transition focus:border-[var(--pokedex-red)]"
+        >
+          <option value="id">Sort by: Default (ID)</option>
+          <option value="name">Sort by: Name</option>
+          <option value="bst">Sort by: Base Stats</option>
+          <option value="weight">Sort by: Weight</option>
+          <option value="height">Sort by: Height</option>
+        </select>
+
+        {/* Generation Toggle */}
+        <select
+          value={selectedGen}
+          onChange={(e) => setSelectedGen(Number(e.target.value))}
+          className="rounded-lg border-2 border-[var(--pokedex-border)] bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 outline-none transition focus:border-[var(--pokedex-red)]"
+        >
+          {GENERATIONS.map((gen, idx) => (
+            <option key={gen.label} value={idx}>
+              {gen.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Type Filter */}
+        <div className="flex flex-wrap gap-2">
           <button
-            type="button"
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
-            aria-label="Clear search"
+            onClick={() => setSelectedType("")}
+            className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+              !selectedType
+                ? "bg-zinc-200 text-zinc-900"
+                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+            }`}
           >
-            ✕
+            All Types
           </button>
-        )}
+          {POKEMON_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => setSelectedType(type)}
+              className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                selectedType === type
+                  ? "bg-[var(--pokedex-red)] text-white shadow-[0_0_8px_rgba(227,53,13,0.5)]"
+                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
       </div>
+
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <button
@@ -512,7 +619,7 @@ export function PokedexWithLoadMore({
         </p>
       )}
       {searchLoading && <p className="text-sm text-zinc-400">Searching…</p>}
-      <PokedexGrid list={filteredList} />
+      <PokedexGrid list={processedList} />
       {loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (

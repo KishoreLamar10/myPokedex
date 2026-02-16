@@ -1,16 +1,16 @@
 import type {
   Evolution,
-  MegaForm,
   PokemonDetail,
   PokemonExtended,
   PokemonListItem,
+  PokemonVariety,
 } from "@/types/pokemon";
 import { getObtainingMethod } from "@/lib/obtaining";
 
 const POKEAPI = "https://pokeapi.co/api/v2";
 
 /** Total Pokémon in PokeAPI (used for Load more). */
-export const TOTAL_POKEMON = 1400;
+export const TOTAL_POKEMON = 2000;
 
 const SMOGON_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const smogonCache = new Map<string, { value: any; expiresAt: number }>();
@@ -129,6 +129,12 @@ export async function getPokemonList(
           sprite: detail.sprites?.front_default ?? "",
           types: (detail.types ?? []).map((t: { type: { name: string } }) =>
             capitalize(t.type.name),
+          ),
+          height: detail.height,
+          weight: detail.weight,
+          baseStatTotal: (detail.stats ?? []).reduce(
+            (acc: number, s: { base_stat: number }) => acc + s.base_stat,
+            0,
           ),
           obtainingMethod: getObtainingMethod(capitalize(detail.name)),
         };
@@ -337,7 +343,7 @@ export async function getPokemonExtended(
     );
 
     let evolutions: Evolution[] = [];
-    let megaForms: MegaForm[] = [];
+    let varieties: PokemonVariety[] = [];
     const smogonNature = await getSmogonNature(data.name, ["sv", "sm"]);
     try {
       const speciesRes = await fetch(`${POKEAPI}/pokemon-species/${id}`, {
@@ -357,26 +363,16 @@ export async function getPokemonExtended(
           }
         }
 
-        const megaVarietyNames = (speciesData.varieties ?? [])
+        const varietyNames = (speciesData.varieties ?? [])
           .filter(
             (v: { is_default: boolean; pokemon: { name: string } }) =>
-              !v.is_default && /-mega/.test(v.pokemon.name),
+              !v.is_default
           )
-          .map((v: { pokemon: { name: string } }) => v.pokemon.name)
-          .filter((name: string) => !name.includes("-mega-z"));
+          .map((v: { pokemon: { name: string } }) => v.pokemon.name);
 
-        const baseName = speciesData.name ?? data.name;
-        const fallbackMegaNames = megaVarietyNames.length
-          ? []
-          : [`${baseName}-mega`, `${baseName}-mega-x`, `${baseName}-mega-y`];
-
-        const megaNames = Array.from(
-          new Set([...megaVarietyNames, ...fallbackMegaNames]),
-        );
-
-        if (megaNames.length > 0) {
-          const megaDetails = await Promise.all(
-            megaNames.map(async (name) => {
+        if (varietyNames.length > 0) {
+          const varietyDetails = await Promise.all(
+            varietyNames.map(async (name: string) => {
               try {
                 const res = await fetch(`${POKEAPI}/pokemon/${name}`, {
                   next: { revalidate: 3600 },
@@ -424,22 +420,22 @@ export async function getPokemonExtended(
                     hidden,
                   },
                   smogonRecommended,
-                } as MegaForm;
+                } as PokemonVariety;
               } catch {
                 return null;
               }
             }),
           );
 
-          megaForms = megaDetails.filter((form) => {
+          varieties = varietyDetails.filter((form) => {
             if (!form) return false;
             return Boolean(form.officialArtwork || form.sprite);
-          }) as MegaForm[];
+          }) as PokemonVariety[];
         }
       }
     } catch {
       evolutions = [];
-      megaForms = [];
+      varieties = [];
     }
 
     const animatedSprite =
@@ -468,7 +464,7 @@ export async function getPokemonExtended(
         hidden: hiddenAbilities,
       },
       evolutions,
-      megaForms,
+      varieties,
     };
   } catch {
     return null;

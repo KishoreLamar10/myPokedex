@@ -1,7 +1,7 @@
 import { getObtainingMethod } from "@/lib/obtaining";
 
 const POKEAPI = "https://pokeapi.co/api/v2";
-const TOTAL_POKEMON = 1400;
+const TOTAL_POKEMON = 2000;
 const RESULT_LIMIT = 10;
 
 let cachedList: Array<{ name: string; url: string }> | null = null;

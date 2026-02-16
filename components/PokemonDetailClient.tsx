@@ -6,199 +6,37 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCaught } from "@/components/CaughtProvider";
 import { getEggMoveEntry } from "@/lib/eggMoves";
 import { getHiddenAbilityRecommendation } from "@/lib/hiddenAbilities";
-import type { Evolution, MegaForm, PokemonDetail } from "@/types/pokemon";
+import type { Evolution, PokemonVariety, PokemonDetail } from "@/types/pokemon";
+import {
+  TYPE_COLORS,
+  TYPE_CHART,
+  getTypeClass,
+  getWeaknesses,
+  getStrengths,
+} from "@/lib/typeEffectiveness";
 
-const TYPE_COLORS: Record<string, string> = {
-  Normal: "bg-amber-100 text-amber-900",
-  Fire: "bg-orange-500 text-white",
-  Water: "bg-blue-500 text-white",
-  Electric: "bg-yellow-400 text-yellow-950",
-  Grass: "bg-green-500 text-white",
-  Ice: "bg-cyan-300 text-cyan-950",
-  Fighting: "bg-red-700 text-white",
-  Poison: "bg-purple-600 text-white",
-  Ground: "bg-amber-700 text-white",
-  Flying: "bg-indigo-300 text-indigo-950",
-  Psychic: "bg-pink-500 text-white",
-  Bug: "bg-lime-600 text-white",
-  Rock: "bg-stone-600 text-white",
-  Ghost: "bg-violet-800 text-white",
-  Dragon: "bg-indigo-600 text-white",
-  Dark: "bg-zinc-800 text-white",
-  Steel: "bg-zinc-400 text-zinc-900",
-  Fairy: "bg-pink-300 text-pink-950",
+
+const TYPE_GRADIENTS: Record<string, string> = {
+  Normal: "from-zinc-500/20 via-zinc-400/10 to-transparent",
+  Fire: "from-orange-600/40 via-orange-500/20 to-transparent",
+  Water: "from-blue-600/40 via-blue-500/20 to-transparent",
+  Electric: "from-yellow-400/40 via-yellow-300/20 to-transparent",
+  Grass: "from-green-600/40 via-green-500/20 to-transparent",
+  Ice: "from-cyan-400/40 via-cyan-300/20 to-transparent",
+  Fighting: "from-red-700/40 via-red-600/20 to-transparent",
+  Poison: "from-purple-600/40 via-purple-500/20 to-transparent",
+  Ground: "from-amber-700/40 via-amber-600/20 to-transparent",
+  Flying: "from-indigo-400/40 via-indigo-300/20 to-transparent",
+  Psychic: "from-pink-600/40 via-pink-500/20 to-transparent",
+  Bug: "from-lime-600/40 via-lime-500/20 to-transparent",
+  Rock: "from-stone-600/40 via-stone-500/20 to-transparent",
+  Ghost: "from-violet-800/40 via-violet-700/20 to-transparent",
+  Dragon: "from-indigo-700/40 via-indigo-600/20 to-transparent",
+  Dark: "from-zinc-900/60 via-zinc-800/30 to-transparent",
+  Steel: "from-zinc-400/40 via-zinc-300/20 to-transparent",
+  Fairy: "from-pink-400/40 via-pink-300/20 to-transparent",
 };
 
-const TYPE_CHART: Record<string, Record<string, number>> = {
-  normal: { rock: 0.5, ghost: 0, steel: 0.5 },
-  fire: {
-    fire: 0.5,
-    water: 0.5,
-    grass: 2,
-    ice: 2,
-    bug: 2,
-    rock: 0.5,
-    dragon: 0.5,
-    steel: 2,
-  },
-  water: { fire: 2, water: 0.5, grass: 0.5, ground: 2, rock: 2, dragon: 0.5 },
-  electric: {
-    water: 2,
-    electric: 0.5,
-    grass: 0.5,
-    ground: 0,
-    flying: 2,
-    dragon: 0.5,
-  },
-  grass: {
-    fire: 0.5,
-    water: 2,
-    grass: 0.5,
-    poison: 0.5,
-    ground: 2,
-    flying: 0.5,
-    bug: 0.5,
-    rock: 2,
-    dragon: 0.5,
-    steel: 0.5,
-  },
-  ice: {
-    fire: 0.5,
-    water: 0.5,
-    grass: 2,
-    ice: 0.5,
-    ground: 2,
-    flying: 2,
-    dragon: 2,
-    steel: 0.5,
-  },
-  fighting: {
-    normal: 2,
-    ice: 2,
-    poison: 0.5,
-    flying: 0.5,
-    psychic: 0.5,
-    bug: 0.5,
-    rock: 2,
-    ghost: 0,
-    dark: 2,
-    steel: 2,
-    fairy: 0.5,
-  },
-  poison: {
-    grass: 2,
-    poison: 0.5,
-    ground: 0.5,
-    rock: 0.5,
-    ghost: 0.5,
-    steel: 0,
-    fairy: 2,
-  },
-  ground: {
-    fire: 2,
-    electric: 2,
-    grass: 0.5,
-    poison: 2,
-    flying: 0,
-    bug: 0.5,
-    rock: 2,
-    steel: 2,
-  },
-  flying: {
-    electric: 0.5,
-    grass: 2,
-    fighting: 2,
-    bug: 2,
-    rock: 0.5,
-    steel: 0.5,
-  },
-  psychic: {
-    fighting: 2,
-    poison: 2,
-    psychic: 0.5,
-    dark: 0,
-    steel: 0.5,
-  },
-  bug: {
-    fire: 0.5,
-    grass: 2,
-    fighting: 0.5,
-    poison: 0.5,
-    flying: 0.5,
-    psychic: 2,
-    ghost: 0.5,
-    dark: 2,
-    steel: 0.5,
-    fairy: 0.5,
-  },
-  rock: {
-    fire: 2,
-    ice: 2,
-    fighting: 0.5,
-    ground: 0.5,
-    flying: 2,
-    bug: 2,
-    steel: 0.5,
-  },
-  ghost: {
-    normal: 0,
-    psychic: 2,
-    ghost: 2,
-    dark: 0.5,
-  },
-  dragon: {
-    dragon: 2,
-    steel: 0.5,
-    fairy: 0,
-  },
-  dark: {
-    fighting: 0.5,
-    psychic: 2,
-    ghost: 2,
-    dark: 0.5,
-    fairy: 0.5,
-  },
-  steel: {
-    fire: 0.5,
-    water: 0.5,
-    electric: 0.5,
-    ice: 2,
-    rock: 2,
-    steel: 0.5,
-    fairy: 2,
-  },
-  fairy: {
-    fire: 0.5,
-    fighting: 2,
-    poison: 0.5,
-    dragon: 2,
-    dark: 2,
-    steel: 0.5,
-  },
-};
-
-function getTypeClass(type: string) {
-  return TYPE_COLORS[type] ?? "bg-zinc-500 text-white";
-}
-
-function getWeaknesses(types: string[]) {
-  const typeKeys = types.map((t) => t.toLowerCase());
-  const multipliers: Record<string, number> = {};
-
-  Object.keys(TYPE_CHART).forEach((attackType) => {
-    const chart = TYPE_CHART[attackType];
-    let multiplier = 1;
-    typeKeys.forEach((defType) => {
-      multiplier *= chart[defType] ?? 1;
-    });
-    multipliers[attackType] = multiplier;
-  });
-
-  return Object.entries(multipliers)
-    .filter(([, mult]) => mult >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .map(([type]) => type.charAt(0).toUpperCase() + type.slice(1));
-}
 
 interface PokemonDetailClientProps {
   pokemon: PokemonDetail;
@@ -346,13 +184,13 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
     normal: string[];
     hidden: string[];
   }>({ normal: [], hidden: [] });
-  const [megaForms, setMegaForms] = useState<MegaForm[]>([]);
+  const [varieties, setVarieties] = useState<PokemonVariety[]>([]);
   const [evolutions, setEvolutions] = useState<Evolution[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [smogonNature, setSmogonNature] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "mega">("overview");
-  const [activeMegaIndex, setActiveMegaIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<"overview" | "variety">("overview");
+  const [activeVarietyIndex, setActiveVarietyIndex] = useState(0);
   const [shinyIds, setShinyIds] = useState<Set<number>>(new Set());
   const [hiddenAbilityIds, setHiddenAbilityIds] = useState<Set<number>>(
     new Set(),
@@ -360,27 +198,32 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   const preferencesLoadedRef = useRef(false);
   const persistTimeoutRef = useRef<number | null>(null);
 
-  const activeMega = megaForms[activeMegaIndex];
-  const isMega = activeTab === "mega" && Boolean(activeMega);
+  const activeVariety = varieties[activeVarietyIndex];
+  const isVariety = activeTab === "variety" && Boolean(activeVariety);
   const activeStats = useMemo(
-    () => (isMega && activeMega ? activeMega.stats : pokemon.stats),
-    [isMega, activeMega, pokemon.stats],
+    () => (isVariety && activeVariety ? activeVariety.stats : pokemon.stats),
+    [isVariety, activeVariety, pokemon.stats],
   );
   const activeTypes = useMemo(
-    () => (isMega && activeMega ? activeMega.types : pokemon.types),
-    [isMega, activeMega, pokemon.types],
+    () => (isVariety && activeVariety ? activeVariety.types : pokemon.types),
+    [isVariety, activeVariety, pokemon.types],
   );
   const activeAbilities =
-    isMega && activeMega ? activeMega.abilities : abilities;
-  const activeName = isMega && activeMega ? activeMega.name : pokemon.name;
+    isVariety && activeVariety ? activeVariety.abilities : abilities;
+  const activeName = isVariety && activeVariety ? activeVariety.name : pokemon.name;
   const activeArtwork =
-    isMega && activeMega
-      ? activeMega.officialArtwork || activeMega.sprite
+    isVariety && activeVariety
+      ? activeVariety.officialArtwork || activeVariety.sprite
       : officialArtwork || pokemon.sprite;
   const activeShinyArtwork =
-    isMega && activeMega ? activeMega.shinyArtwork : shinyArtwork;
+    isVariety && activeVariety ? activeVariety.shinyArtwork : shinyArtwork;
   const showShiny = Boolean(activeShinyArtwork);
-  const activeSmogonNature = isMega ? activeMega?.smogonNature : smogonNature;
+  const activeSmogonNature = isVariety ? activeVariety?.smogonNature : smogonNature;
+
+  const primaryType = activeTypes[0];
+  const typeGradient =
+    TYPE_GRADIENTS[primaryType] ||
+    "from-zinc-800/20 via-zinc-800/10 to-transparent";
 
   const caught = caughtIds.includes(pokemon.id);
   const recommendation = useMemo(
@@ -392,6 +235,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
     [activeStats],
   );
   const weaknesses = useMemo(() => getWeaknesses(activeTypes), [activeTypes]);
+  const strengths = useMemo(() => getStrengths(activeTypes), [activeTypes]);
   const eggMoveEntry = useMemo(
     () => getEggMoveEntry(pokemon.name),
     [pokemon.name],
@@ -439,13 +283,13 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   const prefersNonMega = useMemo(
     () =>
       hiddenAbilityNotes.some((note) =>
-        note.toLowerCase().includes("non-mega"),
+        note.toLowerCase().includes("non-variety"),
       ),
     [hiddenAbilityNotes],
   );
   const megaStoneItems = useMemo(() => {
-    if (!megaForms.length) return [];
-    const mapped = megaForms
+    if (!varieties.length) return [];
+    const mapped = varieties
       .map((form) => ({
         name: getMegaStoneName(pokemon.name, form.name),
         suggested: Boolean(form.smogonRecommended) && !prefersNonMega,
@@ -462,10 +306,10 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
       name,
       suggested,
     }));
-  }, [megaForms, pokemon.name, prefersNonMega]);
+  }, [varieties, pokemon.name, prefersNonMega]);
   const hasHiddenAbility = activeAbilities.hidden.length > 0;
   const shouldRecommendHiddenAbility =
-    !isMega && hasHiddenAbility && hiddenAbilityChain.length > 0;
+    !isVariety && hasHiddenAbility && hiddenAbilityChain.length > 0;
 
   useEffect(() => {
     const fetchArtwork = async () => {
@@ -497,7 +341,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
         }
         setAbilities(data.abilities || { normal: [], hidden: [] });
         setEvolutions(data.evolutions || []);
-        setMegaForms(Array.isArray(data.megaForms) ? data.megaForms : []);
+        setVarieties(Array.isArray(data.megaForms) ? data.megaForms : []);
         setSmogonNature(
           typeof data.smogonNature === "string" ? data.smogonNature : null,
         );
@@ -512,17 +356,17 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
 
   useEffect(() => {
     setActiveTab("overview");
-    setActiveMegaIndex(0);
+    setActiveVarietyIndex(0);
   }, [pokemon.id]);
 
   useEffect(() => {
-    if (megaForms.length === 0 && activeTab === "mega") {
+    if (varieties.length === 0 && activeTab === "variety") {
       setActiveTab("overview");
     }
-    if (activeMegaIndex >= megaForms.length) {
-      setActiveMegaIndex(0);
+    if (activeVarietyIndex >= varieties.length) {
+      setActiveVarietyIndex(0);
     }
-  }, [megaForms, activeTab, activeMegaIndex]);
+  }, [varieties, activeTab, activeVarietyIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -616,8 +460,10 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   };
 
   return (
-    <div className="space-y-4">
-      {megaForms.length > 0 && (
+    <div
+      className={`relative min-h-screen space-y-4 pt-4 transition-all duration-700 bg-gradient-to-br ${typeGradient} bg-fixed animate-in fade-in slide-in-from-bottom-2`}
+    >
+      {varieties.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -632,18 +478,18 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("mega")}
+            onClick={() => setActiveTab("variety")}
             className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
-              activeTab === "mega"
+              activeTab === "variety"
                 ? "bg-rose-600 text-white"
                 : "bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
             }`}
           >
-            Mega
+            Forms
           </button>
-          {activeTab === "mega" && megaForms.length > 1 && (
+          {activeTab === "variety" && varieties.length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
-              {megaForms.map((form, index) => {
+              {varieties.map((form, index) => {
                 const label = form.name.startsWith(pokemon.name)
                   ? form.name.replace(`${pokemon.name} `, "")
                   : form.name;
@@ -651,9 +497,9 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                   <button
                     key={form.id}
                     type="button"
-                    onClick={() => setActiveMegaIndex(index)}
+                    onClick={() => setActiveVarietyIndex(index)}
                     className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      activeMegaIndex === index
+                      activeVarietyIndex === index
                         ? "border-rose-400 bg-rose-500/20 text-rose-100"
                         : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
                     }`}
@@ -748,9 +594,9 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               <p className="max-w-[12.5rem] truncate text-center text-xl font-bold text-white sm:text-2xl">
                 {activeName}
               </p>
-              {isMega && (
+              {isVariety && (
                 <span className="rounded-full bg-rose-600/20 px-2 py-0.5 text-xs font-semibold text-rose-200">
-                  Mega
+                  Form
                 </span>
               )}
             </div>
@@ -892,7 +738,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                 </div>
               </div>
               <div className="space-y-3">
-                {!isMega && (
+                {!isVariety && (
                   <div className="rounded-lg bg-zinc-900/60 px-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                       Items
@@ -922,7 +768,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                     </div>
                   </div>
                 )}
-                {!isMega && (
+                {!isVariety && (
                   <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
                     <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                       Hidden Ability
@@ -964,19 +810,44 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               </h3>
               {weaknesses.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {weaknesses.map((t) => (
+                  {weaknesses.map((w) => (
                     <span
-                      key={t}
-                      className={`rounded px-2 py-1 text-sm font-medium ${getTypeClass(
-                        t,
+                      key={w.type}
+                      className={`flex items-center gap-1 rounded px-2 py-1 text-sm font-medium ${getTypeClass(
+                        w.type,
                       )}`}
                     >
-                      {t}
+                      <span>{w.type}</span>
+                      <span className="opacity-80 text-[10px] bg-black/20 px-1 rounded">{w.multiplier}x</span>
                     </span>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-zinc-400">No major weaknesses.</p>
+              )}
+            </div>
+            <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
+              <h3 className="mb-3 text-lg font-semibold text-[var(--pokedex-screen)]">
+                Effective Against
+              </h3>
+              {strengths.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {strengths.map((s) => (
+                    <span
+                      key={s.type}
+                      className={`flex items-center gap-1 rounded px-2 py-1 text-sm font-medium ${getTypeClass(
+                        s.type,
+                      )}`}
+                    >
+                      <span>{s.type}</span>
+                      <span className="opacity-80 text-[10px] bg-black/20 px-1 rounded">{s.multiplier}x</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-400">
+                  No major strengths.
+                </p>
               )}
             </div>
             <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
@@ -1015,7 +886,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               )}
             </div>
           </div>
-          {!isMega && eggMoveEntry && (
+          {!isVariety && eggMoveEntry && (
             <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
               <h3 className="mb-2 text-lg font-semibold text-[var(--pokedex-screen)]">
                 Egg Moves

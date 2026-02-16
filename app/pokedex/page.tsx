@@ -12,19 +12,7 @@ export default async function PokedexPage() {
   const obtainingLocations = getObtainingLocations();
 
   return (
-    <main className="min-h-screen p-6 md:p-10">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-[var(--pokedex-red)] drop-shadow-[0_0_8px_rgba(227,53,13,0.5)] transition hover:brightness-110"
-          >
-            My Pokédex
-          </Link>
-          <FavoritePokemonIcon />
-        </div>
-        <UserMenu />
-      </header>
+    <main className="p-6 md:p-10">
       <section className="rounded-2xl border-2 border-[var(--pokedex-border)] bg-zinc-900/80 p-6 shadow-inner">
         <PokedexWithLoadMore
           initialList={initialList}

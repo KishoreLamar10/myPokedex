@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CaughtProvider } from "@/components/CaughtProvider";
+import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
   title: "My Pokédex",
@@ -13,9 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <CaughtProvider>{children}</CaughtProvider>
+        <CaughtProvider>
+          <Header />
+          {children}
+        </CaughtProvider>
       </body>
     </html>
   );

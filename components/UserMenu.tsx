@@ -82,6 +82,12 @@ export function UserMenu() {
       >
         Team Builder
       </a>
+      <a
+        href="/journal"
+        className="rounded-lg border border-zinc-700/80 bg-zinc-800/70 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+      >
+        Journey
+      </a>
       <button
         type="button"
         onClick={() => setShowStats((prev) => !prev)}
