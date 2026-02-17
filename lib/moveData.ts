@@ -57,7 +57,7 @@ export async function fetchPokemonMoves(pokemonId: number): Promise<PokemonMoveS
         if (!response.ok) return null;
 
         const data = await response.json();
-        const moves: LearnedMove[] = [];
+        const movesMap = new Map<string, LearnedMove>();
 
         // Process each move
         for (const moveEntry of data.moves) {
@@ -68,24 +68,31 @@ export async function fetchPokemonMoves(pokemonId: number): Promise<PokemonMoveS
             const move = await fetchMoveData(moveId);
             if (!move) continue;
 
-            // Process learn methods
+            // Process learn methods - keep only the most recent version for each method
             for (const versionDetail of moveEntry.version_group_details) {
                 const method = mapLearnMethod(versionDetail.move_learn_method.name);
                 const level = versionDetail.level_learned_at;
 
-                moves.push({
-                    move,
-                    method,
-                    level: level > 0 ? level : undefined,
-                    versionGroup: versionDetail.version_group.name,
-                });
+                // Create a unique key for move + method + level combination
+                const key = `${moveId}-${method}-${level}`;
+
+                // Only add if we haven't seen this combination before
+                // This deduplicates moves that appear in multiple version groups
+                if (!movesMap.has(key)) {
+                    movesMap.set(key, {
+                        move,
+                        method,
+                        level: level > 0 ? level : undefined,
+                        versionGroup: versionDetail.version_group.name,
+                    });
+                }
             }
         }
 
         const moveSet: PokemonMoveSet = {
             pokemonId,
             pokemonName: data.name,
-            moves,
+            moves: Array.from(movesMap.values()),
         };
 
         // Cache the result

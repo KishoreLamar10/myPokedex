@@ -1122,15 +1122,19 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                           {movesTab === "egg" && (
                             <div className="space-y-2">
                               {pokemonMoves.moves.filter((m) => m.method === "egg").length > 0 ? (
-                                pokemonMoves.moves
-                                  .filter((m) => m.method === "egg")
-                                  .map((learnedMove) => (
-                                    <MoveCard
-                                      key={learnedMove.move.id}
-                                      move={learnedMove.move}
-                                      variant="compact"
-                                    />
-                                  ))
+                                Array.from(
+                                  new Map(
+                                    pokemonMoves.moves
+                                      .filter((m) => m.method === "egg")
+                                      .map((learnedMove) => [learnedMove.move.id, learnedMove])
+                                  ).values()
+                                ).map((learnedMove) => (
+                                  <MoveCard
+                                    key={learnedMove.move.id}
+                                    move={learnedMove.move}
+                                    variant="compact"
+                                  />
+                                ))
                               ) : (
                                 <p className="text-center py-8 text-zinc-500">No egg moves available</p>
                               )}
@@ -1139,15 +1143,19 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                           {movesTab === "tutor" && (
                             <div className="space-y-2">
                               {pokemonMoves.moves.filter((m) => m.method === "tutor").length > 0 ? (
-                                pokemonMoves.moves
-                                  .filter((m) => m.method === "tutor")
-                                  .map((learnedMove) => (
-                                    <MoveCard
-                                      key={learnedMove.move.id}
-                                      move={learnedMove.move}
-                                      variant="compact"
-                                    />
-                                  ))
+                                Array.from(
+                                  new Map(
+                                    pokemonMoves.moves
+                                      .filter((m) => m.method === "tutor")
+                                      .map((learnedMove) => [learnedMove.move.id, learnedMove])
+                                  ).values()
+                                ).map((learnedMove) => (
+                                  <MoveCard
+                                    key={learnedMove.move.id}
+                                    move={learnedMove.move}
+                                    variant="compact"
+                                  />
+                                ))
                               ) : (
                                 <p className="text-center py-8 text-zinc-500">No tutor moves available</p>
                               )}

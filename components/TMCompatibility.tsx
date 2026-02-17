@@ -18,8 +18,16 @@ export function TMCompatibility({ moves, pokemonName }: TMCompatibilityProps) {
 
   // Filter TM/machine moves
   const tmMoves = useMemo(() => {
-    return moves
-      .filter((m) => m.method === 'machine' || m.method === 'tm' || m.method === 'tr')
+    // First deduplicate by move.id
+    const uniqueMoves = Array.from(
+      new Map(
+        moves
+          .filter((m) => m.method === 'machine' || m.method === 'tm' || m.method === 'tr')
+          .map((m) => [m.move.id, m])
+      ).values()
+    );
+    
+    return uniqueMoves
       .filter((m) => {
         const matchesSearch = m.move.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesType = typeFilter === 'all' || m.move.type === typeFilter;

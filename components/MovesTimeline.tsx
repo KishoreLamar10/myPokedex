@@ -17,8 +17,16 @@ export function MovesTimeline({ moves, pokemonName }: MovesTimelineProps) {
 
   // Filter and sort level-up moves
   const levelUpMoves = useMemo(() => {
-    return moves
-      .filter((m) => m.method === 'level-up' && m.level !== undefined)
+    // First deduplicate by move.id and level combination
+    const uniqueMoves = Array.from(
+      new Map(
+        moves
+          .filter((m) => m.method === 'level-up' && m.level !== undefined)
+          .map((m) => [`${m.move.id}-${m.level}`, m])
+      ).values()
+    );
+    
+    return uniqueMoves
       .filter((m) => typeFilter === 'all' || m.move.type === typeFilter)
       .filter((m) => categoryFilter === 'all' || m.move.category === categoryFilter)
       .sort((a, b) => (a.level || 0) - (b.level || 0));
