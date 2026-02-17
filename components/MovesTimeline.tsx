@@ -82,7 +82,7 @@ export function MovesTimeline({ moves, pokemonName }: MovesTimelineProps) {
           const isLast = index === levelUpMoves.length - 1;
 
           return (
-            <div key={`${learnedMove.move.id}-${level}`} className="relative flex items-start gap-4">
+            <div key={`${learnedMove.move.id}-${level}-${index}`} className="relative flex items-start gap-4">
               {/* Level marker */}
               <div className="relative z-10 flex-shrink-0 w-16 text-right">
                 <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full border-2 ${

@@ -8,7 +8,7 @@ export function useUserPreferences() {
     const [preferences, setPreferences] = useState<UserPreferences | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const saveTimeoutRef = useRef<NodeJS.Timeout>();
+    const saveTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     // Load preferences on mount
     useEffect(() => {
