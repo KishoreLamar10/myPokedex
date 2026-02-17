@@ -41,8 +41,8 @@ export function exportToShowdown(team: TeamMember[]): string {
 
             // Moves
             member.moves.forEach((move) => {
-                if (move.name) {
-                    lines.push(`- ${move.name}`);
+                if (move) {
+                    lines.push(`- ${move}`);
                 }
             });
 
