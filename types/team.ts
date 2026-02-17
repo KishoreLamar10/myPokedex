@@ -5,6 +5,7 @@ export interface StatBlock {
   spa: number;
   spd: number;
   spe: number;
+  [key: string]: number;
 }
 
 export const MAX_EVS = 510;
@@ -23,8 +24,10 @@ export interface TeamMember {
   nature: string;
   item: string;
   moves: string[]; // Array of move names
+  moveTypes?: Record<string, string>; // Optional mapping for coloring
   ivs: StatBlock;
   evs: StatBlock;
+  baseStats?: StatBlock; // Optional for backward compatibility
   shiny: boolean;
   teraType?: string; // Optional for Gen 9
 }

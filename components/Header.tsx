@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PokemonSearch } from "./PokemonSearch";
 import { FavoritePokemonIcon } from "./FavoritePokemonIcon";
 import { UserMenu } from "./UserMenu";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Header() {
   return (
@@ -23,7 +24,15 @@ export function Header() {
           <PokemonSearch />
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link
+            href="/settings"
+            className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition"
+            title="Settings"
+          >
+            <span className="text-xl">⚙️</span>
+          </Link>
           <div className="sm:hidden">
             <FavoritePokemonIcon />
           </div>

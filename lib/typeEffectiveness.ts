@@ -214,3 +214,41 @@ export function getStrengths(types: string[]) {
 
   return strengths.sort((a, b) => a.type.localeCompare(b.type));
 }
+
+export function getEffectivenessData(types: string[]) {
+  const typeKeys = types.map((t) => t.toLowerCase());
+  const multipliers: Record<string, number> = {};
+
+  Object.keys(TYPE_CHART).forEach((attackType) => {
+    const chart = TYPE_CHART[attackType];
+    let multiplier = 1;
+    typeKeys.forEach((defType) => {
+      multiplier *= chart[defType] ?? 1;
+    });
+    multipliers[attackType] = multiplier;
+  });
+
+  const categorized = {
+    weak: [] as Array<{ type: string; multiplier: number }>,
+    resistant: [] as Array<{ type: string; multiplier: number }>,
+    immune: [] as Array<{ type: string; multiplier: number }>,
+  };
+
+  Object.entries(multipliers).forEach(([type, mult]) => {
+    const typeName = type.charAt(0).toUpperCase() + type.slice(1);
+    const data = { type: typeName, multiplier: mult };
+    if (mult > 1) {
+      categorized.weak.push(data);
+    } else if (mult === 0) {
+      categorized.immune.push(data);
+    } else if (mult < 1) {
+      categorized.resistant.push(data);
+    }
+  });
+
+  categorized.weak.sort((a, b) => b.multiplier - a.multiplier);
+  categorized.resistant.sort((a, b) => a.multiplier - b.multiplier);
+  categorized.immune.sort((a, b) => a.type.localeCompare(b.type));
+
+  return categorized;
+}

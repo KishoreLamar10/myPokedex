@@ -9,7 +9,9 @@ import { PokemonSelector } from "@/components/TeamBuilder/PokemonSelector";
 import { TeamSlot } from "@/components/TeamBuilder/TeamSlot";
 import { EditPokemonModal } from "@/components/TeamBuilder/EditPokemonModal";
 import { TeamCoverage } from "@/components/TeamCoverage";
-import type { Team, TeamMember } from "@/types/team";
+import { ImportExportModal } from "@/components/TeamBuilder/ImportExportModal";
+import { SynergyDashboard } from "@/components/TeamBuilder/SynergyDashboard";
+import type { Team, TeamMember, StatBlock } from "@/types/team";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/types/team";
 import { useCaught } from "@/components/CaughtProvider";
 import type { PokemonListItem } from "@/types/pokemon";
@@ -24,6 +26,8 @@ export default function TeamBuilderPage() {
   // Modal State
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [importExportOpen, setImportExportOpen] = useState(false);
+  const [synergyVisible, setSynergyVisible] = useState(false);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -93,13 +97,27 @@ export default function TeamBuilderPage() {
     if (!activeTeamId || activeSlotIndex === null) return;
 
     let availableAbilities: { name: string; isHidden: boolean }[] = [];
+    let baseStats: StatBlock = DEFAULT_IVS; // Fallback
     try {
         const details = await getPokemonById(pokemon.id);
         if (details) {
             availableAbilities = details.abilities;
+            
+            // Map details.stats to baseStats
+            const statsMap: any = {};
+            details.stats.forEach(s => {
+                const name = s.name.toLowerCase();
+                if (name === "hp") statsMap.hp = s.value;
+                if (name === "attack") statsMap.atk = s.value;
+                if (name === "defense") statsMap.def = s.value;
+                if (name === "special attack") statsMap.spa = s.value;
+                if (name === "special defense") statsMap.spd = s.value;
+                if (name === "speed") statsMap.spe = s.value;
+            });
+            baseStats = statsMap as StatBlock;
         }
     } catch (e) {
-        console.error("Failed to fetch details for abilities", e);
+        console.error("Failed to fetch details for abilities/stats", e);
     }
 
     const newMember: TeamMember = {
@@ -115,6 +133,7 @@ export default function TeamBuilderPage() {
       moves: [],
       ivs: DEFAULT_IVS,
       evs: DEFAULT_EVS,
+      baseStats,
       shiny: false,
     };
 
@@ -246,12 +265,35 @@ export default function TeamBuilderPage() {
                         onChange={(e) => handleUpdateName(team.id, e.target.value)}
                         className="bg-transparent text-xl font-bold focus:outline-none focus:border-b border-[var(--pokedex-screen)] w-full max-w-md"
                     />
-                    <button
-                        onClick={() => handleDeleteTeam(team.id)}
-                        className="text-zinc-400 hover:text-red-400 text-sm px-3 py-1"
-                    >
-                        Delete
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => {
+                                setActiveTeamId(team.id);
+                                setImportExportOpen(true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm font-semibold transition flex items-center gap-2"
+                        >
+                            <span>⇅</span>
+                            <span>Import/Export</span>
+                        </button>
+                        <button
+                            onClick={() => setSynergyVisible(!synergyVisible)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
+                                synergyVisible 
+                                    ? 'bg-[var(--pokedex-screen)] text-zinc-900' 
+                                    : 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
+                            }`}
+                        >
+                            <span>{synergyVisible ? '▼' : '▶'}</span>
+                            <span>Synergy Analysis</span>
+                        </button>
+                        <button
+                            onClick={() => handleDeleteTeam(team.id)}
+                            className="text-zinc-400 hover:text-red-400 text-sm px-3 py-1"
+                        >
+                            Delete
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -272,6 +314,13 @@ export default function TeamBuilderPage() {
                 <div className="mt-6 border-t border-zinc-700/50 pt-6">
                   <TeamCoverage team={team.pokemon || []} />
                 </div>
+                
+                {/* Synergy Dashboard - Collapsible */}
+                {synergyVisible && (
+                  <div className="mt-6 border-t border-zinc-700/50 pt-6 animate-in slide-in-from-top-4 fade-in duration-300">
+                    <SynergyDashboard team={team.pokemon || []} />
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -291,6 +340,20 @@ export default function TeamBuilderPage() {
              member={editingMember}
              onSave={handleSaveMember}
           />
+      )}
+
+      {activeTeamId && (
+        <ImportExportModal
+          isOpen={importExportOpen}
+          onClose={() => setImportExportOpen(false)}
+          team={teams.find(t => t.id === activeTeamId)?.pokemon || []}
+          onImport={(importedPokemon) => {
+            if (activeTeamId) {
+              saveTeamMembers(activeTeamId, importedPokemon);
+              setImportExportOpen(false);
+            }
+          }}
+        />
       )}
     </div>
   );

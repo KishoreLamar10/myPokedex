@@ -5,12 +5,121 @@
   --pokedex-dark: #313131;
   --pokedex-screen: #8bc34a;
   --pokedex-border: #424242;
+
+  /* Default to dark mode colors */
+  --bg-primary: #09090b;
+  --bg-secondary: #18181b;
+  --bg-tertiary: #27272a;
+  --text-primary: #fafafa;
+  --text-secondary: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --border: #3f3f46;
+  --border-light: #27272a;
+}
+
+/* Light mode color overrides */
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-tertiary: #e4e4e7;
+  --text-primary: #18181b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --border: #d4d4d8;
+  --border-light: #e4e4e7;
+  --pokedex-border: #d4d4d8;
+}
+
+/* Auto mode - detect system preference */
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f4f4f5;
+    --bg-tertiary: #e4e4e7;
+    --text-primary: #18181b;
+    --text-secondary: #3f3f46;
+    --text-muted: #71717a;
+    --border: #d4d4d8;
+    --border-light: #e4e4e7;
+    --pokedex-border: #d4d4d8;
+  }
 }
 
 body {
-  background: var(--pokedex-dark);
-  color: #fafafa;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Override hardcoded Tailwind colors with theme variables */
+/* Use attribute selectors to catch all variations including opacity modifiers */
+[class*="bg-zinc-900"],
+[class*="bg-gray-900"],
+[class*="bg-slate-900"],
+[class*="bg-neutral-900"],
+[class*="bg-neutral-800"] {
+  background-color: var(--bg-primary) !important;
+}
+
+[class*="bg-zinc-800"],
+[class*="bg-gray-800"],
+[class*="bg-gray-700"],
+[class*="bg-gray-600"],
+[class*="bg-slate-800"],
+[class*="bg-slate-700"],
+[class*="bg-slate-600"],
+[class*="bg-neutral-700"] {
+  background-color: var(--bg-secondary) !important;
+}
+
+[class*="bg-zinc-700"],
+[class*="bg-gray-500"],
+[class*="bg-slate-500"],
+[class*="bg-neutral-600"] {
+  background-color: var(--bg-tertiary) !important;
+}
+
+[class*="text-zinc-100"],
+[class*="text-zinc-200"],
+[class*="text-white"],
+[class*="text-gray-100"],
+[class*="text-gray-200"],
+[class*="text-slate-100"],
+[class*="text-slate-200"] {
+  color: var(--text-primary) !important;
+}
+
+[class*="text-zinc-300"],
+[class*="text-zinc-400"],
+[class*="text-gray-300"],
+[class*="text-gray-400"],
+[class*="text-slate-300"],
+[class*="text-slate-400"] {
+  color: var(--text-secondary) !important;
+}
+
+[class*="text-zinc-500"],
+[class*="text-zinc-600"],
+[class*="text-gray-500"],
+[class*="text-gray-600"],
+[class*="text-slate-500"],
+[class*="text-slate-600"] {
+  color: var(--text-muted) !important;
+}
+
+[class*="border-zinc-700"],
+[class*="border-gray-700"],
+[class*="border-gray-600"],
+[class*="border-slate-700"],
+[class*="border-slate-600"] {
+  border-color: var(--border) !important;
+}
+
+[class*="border-zinc-800"],
+[class*="border-gray-800"],
+[class*="border-slate-800"] {
+  border-color: var(--border-light) !important;
 }
 
 .stat-progress {

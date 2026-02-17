@@ -14,6 +14,7 @@ export const TOTAL_POKEMON = 2000;
 
 const SMOGON_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const smogonCache = new Map<string, { value: any; expiresAt: number }>();
+const moveCache = new Map<string, any>();
 
 function capitalize(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -504,6 +505,53 @@ export async function getAllMoves(): Promise<{ name: string; url: string }[]> {
   }
 }
 
+export async function getMoveDetails(moveName: string): Promise<any | null> {
+  const normalized = moveName.toLowerCase().replace(/ /g, "-");
+  if (moveCache.has(normalized)) return moveCache.get(normalized);
+
+  try {
+    const res = await fetch(`${POKEAPI}/move/${normalized}`, {
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const details = {
+      name: formatName(data.name),
+      type: data.type.name,
+      power: data.power,
+      damageClass: data.damage_class?.name,
+      accuracy: data.accuracy,
+      pp: data.pp,
+      priority: data.priority,
+    };
+    moveCache.set(normalized, details);
+    return details;
+  } catch {
+    return null;
+  }
+}
+
+export async function getMoveType(moveName: string): Promise<string | null> {
+  const details = await getMoveDetails(moveName);
+  return details?.type ?? null;
+}
+
 export async function getAllPokemonForSelector(): Promise<PokemonListItem[]> {
   return getPokemonList(TOTAL_POKEMON, 0);
+}
+
+export async function getPokemonLearnset(id: number | string): Promise<{ name: string; url: string }[]> {
+  try {
+    const res = await fetch(`${POKEAPI}/pokemon/${id}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.moves ?? []).map((m: any) => ({
+      name: formatName(m.move.name),
+      url: m.move.url,
+    }));
+  } catch {
+    return [];
+  }
 }

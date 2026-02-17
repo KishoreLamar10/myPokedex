@@ -6,7 +6,7 @@ import type { TeamMember } from "@/types/team";
 import { ItemSelector } from "./ItemSelector";
 import { ItemIcon } from "./ItemIcon";
 import { MoveSelector } from "./MoveSelector";
-import { getPokemonById } from "@/lib/pokeapi";
+import { getPokemonById, getMoveDetails } from "@/lib/pokeapi";
 
 interface TeamSlotProps {
   member: TeamMember | null;
@@ -16,26 +16,7 @@ interface TeamSlotProps {
   onUpdate: (member: TeamMember) => void;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  Normal: "bg-zinc-500",
-  Fire: "bg-orange-500",
-  Water: "bg-blue-500",
-  Electric: "bg-yellow-500",
-  Grass: "bg-green-500",
-  Ice: "bg-cyan-400",
-  Fighting: "bg-red-700",
-  Poison: "bg-purple-600",
-  Ground: "bg-amber-700",
-  Flying: "bg-indigo-400",
-  Psychic: "bg-pink-500",
-  Bug: "bg-lime-600",
-  Rock: "bg-stone-600",
-  Ghost: "bg-purple-800",
-  Dragon: "bg-indigo-700",
-  Steel: "bg-slate-500",
-  Dark: "bg-zinc-800",
-  Fairy: "bg-pink-400",
-};
+import { TYPE_COLORS } from "@/lib/typeEffectiveness";
 
 export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlotProps) {
   const [activeSelector, setActiveSelector] = useState<"item" | "move" | null>(null);
@@ -61,6 +42,29 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
         }
     });
   }, [member?.id, member?.availableAbilities]); // Re-run if ID or abilities prop changes
+  
+  // Auto-populate move types if missing
+  useEffect(() => {
+    if (!member || !member.moves || member.moves.length === 0) return;
+    
+    const missingMoves = member.moves.filter(m => m && (!member.moveTypes || !member.moveTypes[m]));
+    
+    if (missingMoves.length > 0) {
+        Promise.all(missingMoves.map(m => getMoveDetails(m))).then(details => {
+            const newMoveTypes = { ...(member.moveTypes || {}) };
+            details.forEach((d: any) => {
+                if (d) {
+                    newMoveTypes[d.name] = d.type;
+                }
+            });
+            
+            // Only update if something actually changed
+            if (Object.keys(newMoveTypes).length > Object.keys(member.moveTypes || {}).length) {
+                onUpdate({ ...member, moveTypes: newMoveTypes });
+            }
+        });
+    }
+  }, [member?.moves, member?.moveTypes]);
 
   const handleItemSelect = (item: string) => {
     if (!member) return;
@@ -68,11 +72,17 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
     setActiveSelector(null);
   };
 
-  const handleMoveSelect = (move: string) => {
+  const handleMoveSelect = (moveName: string, moveType?: string) => {
     if (!member || activeMoveIndex === null) return;
     const newMoves = [...member.moves];
-    newMoves[activeMoveIndex] = move;
-    onUpdate({ ...member, moves: newMoves });
+    newMoves[activeMoveIndex] = moveName;
+    
+    const newMoveTypes = { ...(member.moveTypes || {}) };
+    if (moveType) {
+        newMoveTypes[moveName] = moveType;
+    }
+    
+    onUpdate({ ...member, moves: newMoves, moveTypes: newMoveTypes });
     setActiveSelector(null);
     setActiveMoveIndex(null);
   };
@@ -157,6 +167,10 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
                    <div className="grid grid-cols-2 gap-0.5 mt-2">
                       {Array.from({ length: 4 }).map((_, i) => {
                           const move = member.moves[i];
+                          const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                          const moveType = move ? member.moveTypes?.[move] : null;
+                          const colorClass = moveType ? TYPE_COLORS[capitalize(moveType)] : "bg-zinc-700/50";
+                          
                           return (
                             <button 
                                 key={i} 
@@ -165,9 +179,9 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
                                     setActiveMoveIndex(i);
                                     setActiveSelector("move");
                                 }}
-                                className={`text-[10px] px-1 py-0.5 rounded truncate text-center transition ${
+                                className={`text-[10px] px-1 py-0.5 rounded truncate text-center transition font-bold ${
                                     move 
-                                    ? "bg-zinc-700/50 text-zinc-300 hover:bg-zinc-600" 
+                                    ? `${colorClass} text-white border border-black/20 hover:brightness-110 shadow-sm` 
                                     : "bg-zinc-800/30 text-zinc-600 border border-dashed border-zinc-700 hover:border-zinc-500 hover:text-zinc-500"
                                 }`}
                             >
@@ -188,6 +202,10 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
 
       <MoveSelector
         isOpen={activeSelector === "move"}
+        pokemonId={member.id}
+        pokemonName={member.name}
+        pokemonTypes={member.types}
+        stats={member.baseStats || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }}
         onClose={() => setActiveSelector(null)}
         onSelect={handleMoveSelect}
       />

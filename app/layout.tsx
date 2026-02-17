@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CaughtProvider } from "@/components/CaughtProvider";
+import { PreferencesProvider } from "@/contexts/PreferencesContext";
+import { ThemeApplier } from "@/components/ThemeApplier";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
@@ -16,10 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
-        <CaughtProvider>
-          <Header />
-          {children}
-        </CaughtProvider>
+        <PreferencesProvider>
+          <ThemeApplier />
+          <CaughtProvider>
+            <Header />
+            {children}
+          </CaughtProvider>
+        </PreferencesProvider>
       </body>
     </html>
   );

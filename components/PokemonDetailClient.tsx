@@ -7,13 +7,18 @@ import { useCaught } from "@/components/CaughtProvider";
 import { getEggMoveEntry } from "@/lib/eggMoves";
 import { getHiddenAbilityRecommendation } from "@/lib/hiddenAbilities";
 import type { Evolution, PokemonVariety, PokemonDetail } from "@/types/pokemon";
+import type { PokemonMoveSet } from "@/types/move";
 import {
   TYPE_COLORS,
   TYPE_CHART,
   getTypeClass,
-  getWeaknesses,
+  getEffectivenessData,
   getStrengths,
 } from "@/lib/typeEffectiveness";
+import { fetchPokemonMoves } from "@/lib/moveData";
+import { MovesTimeline } from "@/components/MovesTimeline";
+import { TMCompatibility } from "@/components/TMCompatibility";
+import { MoveCard } from "@/components/MoveCard";
 
 
 const TYPE_GRADIENTS: Record<string, string> = {
@@ -175,6 +180,100 @@ function getCompetitiveExtras(
   };
 }
 
+function RadarChart({ stats, colorClass }: { stats: { name: string; value: number }[]; colorClass: string }) {
+  const size = 300;
+  const center = size / 2;
+  const radius = size * 0.35;
+  const maxStat = 255;
+
+  const points = stats.map((stat, i) => {
+    const angle = (i * 60 - 90) * (Math.PI / 180);
+    const valueRadius = (stat.value / maxStat) * radius;
+    const x = center + valueRadius * Math.cos(angle);
+    const y = center + valueRadius * Math.sin(angle);
+    return `${x},${y}`;
+  }).join(" ");
+
+  const axisPoints = stats.map((_, i) => {
+    const angle = (i * 60 - 90) * (Math.PI / 180);
+    const x = center + radius * Math.cos(angle);
+    const y = center + radius * Math.sin(angle);
+    return { x, y };
+  });
+
+  return (
+    <div className="relative w-full aspect-square max-w-[300px] mx-auto flex items-center justify-center">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full drop-shadow-xl overflow-visible">
+        {/* Outer Hexagon Background */}
+        <polygon
+          points={axisPoints.map(p => `${p.x},${p.y}`).join(" ")}
+          className="fill-zinc-800/30 stroke-zinc-700/20 stroke-1"
+        />
+
+        {/* Connection Polygons (Grid rings) */}
+        {[0.25, 0.5, 0.75, 1].map((scale) => (
+          <polygon
+            key={scale}
+            points={stats.map((_, i) => {
+              const angle = (i * 60 - 90) * (Math.PI / 180);
+              const x = center + radius * scale * Math.cos(angle);
+              const y = center + radius * scale * Math.sin(angle);
+              return `${x},${y}`;
+            }).join(" ")}
+            className="fill-none stroke-zinc-400/10 stroke-[1]"
+          />
+        ))}
+
+        {/* Axis Lines */}
+        {axisPoints.map((p, i) => (
+          <line
+            key={i}
+            x1={center}
+            y1={center}
+            x2={p.x}
+            y2={p.y}
+            className="stroke-zinc-400/10 stroke-[1]"
+          />
+        ))}
+
+        {/* Data Polygon */}
+        <polygon
+          points={points}
+          className={`${colorClass} fill-current fill-opacity-40 stroke-current stroke-2 transition-all duration-700 ease-in-out`}
+        />
+        
+        {/* Labels */}
+        {stats.map((stat, i) => {
+          const angle = (i * 60 - 90) * (Math.PI / 180);
+          const labelRadius = radius + 30;
+          const x = center + labelRadius * Math.cos(angle);
+          const y = center + labelRadius * Math.sin(angle);
+          
+          // Simplified labels: HP, ATK, DEF, SPA, SPD, SPE
+          const shortName = stat.name.toLowerCase() === "hp" ? "HP" : 
+                           stat.name.toLowerCase().includes("special attack") ? "SPA" :
+                           stat.name.toLowerCase().includes("special defense") ? "SPD" :
+                           stat.name.toUpperCase().substring(0, 3);
+          
+          return (
+            <text
+              key={i}
+              x={x}
+              y={y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-zinc-400 text-[9px] font-black uppercase tracking-widest pointer-events-none"
+            >
+              <tspan x={x} dy="-0.6em">{shortName}</tspan>
+              <tspan x={x} dy="1.4em" className="fill-white font-mono text-xs">{stat.value}</tspan>
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   const { caughtIds, toggleCaught, loading, error } = useCaught();
   const [busy, setBusy] = useState(false);
@@ -189,17 +288,20 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   const [detailsLoading, setDetailsLoading] = useState(true);
   const [detailsError, setDetailsError] = useState<string | null>(null);
   const [smogonNature, setSmogonNature] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "variety">("overview");
-  const [activeVarietyIndex, setActiveVarietyIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<"stats" | "pro">("stats");
+  const [activeVarietyIndex, setActiveVarietyIndex] = useState(-1); // -1 for Base
   const [shinyIds, setShinyIds] = useState<Set<number>>(new Set());
   const [hiddenAbilityIds, setHiddenAbilityIds] = useState<Set<number>>(
     new Set(),
   );
+  const [movesTab, setMovesTab] = useState<"level-up" | "tm" | "egg" | "tutor">("level-up");
+  const [pokemonMoves, setPokemonMoves] = useState<PokemonMoveSet | null>(null);
+  const [movesLoading, setMovesLoading] = useState(false);
   const preferencesLoadedRef = useRef(false);
   const persistTimeoutRef = useRef<number | null>(null);
 
-  const activeVariety = varieties[activeVarietyIndex];
-  const isVariety = activeTab === "variety" && Boolean(activeVariety);
+  const activeVariety = activeVarietyIndex !== -1 ? varieties[activeVarietyIndex] : null;
+  const isVariety = activeVarietyIndex !== -1 && Boolean(activeVariety);
   const activeStats = useMemo(
     () => (isVariety && activeVariety ? activeVariety.stats : pokemon.stats),
     [isVariety, activeVariety, pokemon.stats],
@@ -218,7 +320,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   const activeShinyArtwork =
     isVariety && activeVariety ? activeVariety.shinyArtwork : shinyArtwork;
   const showShiny = Boolean(activeShinyArtwork);
-  const activeSmogonNature = isVariety ? activeVariety?.smogonNature : smogonNature;
+  const activeSmogonNature = isVariety && activeVariety ? activeVariety.smogonNature : smogonNature;
 
   const primaryType = activeTypes[0];
   const typeGradient =
@@ -234,7 +336,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
     () => getCompetitiveExtras(activeStats),
     [activeStats],
   );
-  const weaknesses = useMemo(() => getWeaknesses(activeTypes), [activeTypes]);
+  const effectiveness = useMemo(() => getEffectivenessData(activeTypes), [activeTypes]);
   const strengths = useMemo(() => getStrengths(activeTypes), [activeTypes]);
   const eggMoveEntry = useMemo(
     () => getEggMoveEntry(pokemon.name),
@@ -341,7 +443,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
         }
         setAbilities(data.abilities || { normal: [], hidden: [] });
         setEvolutions(data.evolutions || []);
-        setVarieties(Array.isArray(data.megaForms) ? data.megaForms : []);
+        setVarieties(Array.isArray(data.varieties) ? data.varieties : []);
         setSmogonNature(
           typeof data.smogonNature === "string" ? data.smogonNature : null,
         );
@@ -355,18 +457,15 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
   }, [pokemon.id]);
 
   useEffect(() => {
-    setActiveTab("overview");
-    setActiveVarietyIndex(0);
+    setActiveTab("stats");
+    setActiveVarietyIndex(-1);
   }, [pokemon.id]);
 
   useEffect(() => {
-    if (varieties.length === 0 && activeTab === "variety") {
-      setActiveTab("overview");
-    }
     if (activeVarietyIndex >= varieties.length) {
-      setActiveVarietyIndex(0);
+      setActiveVarietyIndex(-1);
     }
-  }, [varieties, activeTab, activeVarietyIndex]);
+  }, [varieties, activeVarietyIndex]);
 
   useEffect(() => {
     let cancelled = false;
@@ -461,65 +560,71 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
 
   return (
     <div
-      className={`relative min-h-screen space-y-4 pt-4 transition-all duration-700 bg-gradient-to-br ${typeGradient} bg-fixed animate-in fade-in slide-in-from-bottom-2`}
+      className={`relative min-h-screen space-y-3 pt-3 transition-all duration-700 bg-gradient-to-br ${typeGradient} bg-fixed animate-in fade-in slide-in-from-bottom-2`}
     >
-      {varieties.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 bg-zinc-900/40 p-1.5 rounded-2xl border border-zinc-800 w-fit">
           <button
             type="button"
-            onClick={() => setActiveTab("overview")}
-            className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
-              activeTab === "overview"
-                ? "bg-[var(--pokedex-screen)] text-zinc-900"
-                : "bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
+            onClick={() => {
+              setActiveTab("stats");
+              setActiveVarietyIndex(-1);
+            }}
+            className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeTab === "stats" && activeVarietyIndex === -1
+                ? "bg-zinc-100 text-zinc-900 shadow-lg"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
             }`}
           >
-            Overview
+            Base
           </button>
+
+          {varieties.map((form, index) => {
+            let label = form.name.replace(pokemon.name, "").trim();
+            if (!label) label = "Form";
+            
+            label = label.replace(/Alolan/i, "Alola");
+            label = label.replace(/Galarian/i, "Galar");
+            label = label.replace(/Hisuian/i, "Hisui");
+            label = label.replace(/Paldean/i, "Paldea");
+
+            return (
+              <button
+                key={form.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab("stats");
+                  setActiveVarietyIndex(index);
+                }}
+                className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                  activeTab === "stats" && activeVarietyIndex === index
+                    ? "bg-rose-600 text-white shadow-lg shadow-rose-600/30"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+
+          <div className="w-px h-4 bg-zinc-800 mx-1" />
+
           <button
             type="button"
-            onClick={() => setActiveTab("variety")}
-            className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
-              activeTab === "variety"
-                ? "bg-rose-600 text-white"
-                : "bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
+            onClick={() => setActiveTab("pro")}
+            className={`rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeTab === "pro"
+                ? "bg-amber-500 text-zinc-900 shadow-lg shadow-amber-500/30 font-black"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
             }`}
           >
-            Forms
+            Pro
           </button>
-          {activeTab === "variety" && varieties.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {varieties.map((form, index) => {
-                const label = form.name.startsWith(pokemon.name)
-                  ? form.name.replace(`${pokemon.name} `, "")
-                  : form.name;
-                return (
-                  <button
-                    key={form.id}
-                    type="button"
-                    onClick={() => setActiveVarietyIndex(index)}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      activeVarietyIndex === index
-                        ? "border-rose-400 bg-rose-500/20 text-rose-100"
-                        : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
-      )}
-      <div className="flex flex-col gap-8 md:flex-row md:items-start">
-        {error && (
-          <p className="rounded-lg bg-red-900/50 px-4 py-2 text-sm text-red-200">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-col items-center gap-4 md:w-72">
-          <div className="flex w-full flex-col items-center rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-6">
+      </div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        <div className="flex flex-col items-center gap-3 md:w-64">
+          <div className="flex w-full flex-col items-center rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
             {activeArtwork ? (
               <Image
                 src={
@@ -528,24 +633,24 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                     : activeArtwork
                 }
                 alt={activeName}
-                width={192}
-                height={192}
-                className="h-48 w-48 object-contain"
+                width={144}
+                height={144}
+                className="h-36 w-36 object-contain"
               />
             ) : (
               <span className="text-8xl text-zinc-600">?</span>
             )}
             {(showShiny || activeAbilities.hidden.length > 0) && (
-              <div className="mt-4 flex w-full gap-2">
+              <div className="mt-3 flex w-full gap-2">
                 {showShiny && (
                   <button
                     type="button"
                     onClick={toggleShiny}
-                    className={`flex-1 rounded-lg py-2 font-semibold transition border-2 flex items-center justify-center ${
+                    className={`flex-1 rounded-lg py-1.5 font-semibold transition border flex items-center justify-center ${
                       shinyIds.has(pokemon.id)
                         ? "bg-red-600 border-red-500 text-white shadow-lg shadow-red-600/60"
-                        : "bg-zinc-800/40 border-red-400 hover:bg-red-600/10"
-                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/70`}
+                        : "bg-zinc-800/40 border-red-400 hover:bg-red-600/10 text-red-100"
+                    } focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400/70`}
                     title="Toggle Shiny"
                     aria-label={`Toggle shiny for ${activeName}`}
                   >
@@ -564,11 +669,11 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                   <button
                     type="button"
                     onClick={toggleHiddenAbility}
-                    className={`flex-1 rounded-lg py-2 font-semibold transition border-2 flex items-center justify-center ${
+                    className={`flex-1 rounded-lg py-1.5 font-semibold transition border flex items-center justify-center ${
                       hiddenAbilityIds.has(pokemon.id)
                         ? "bg-green-600 border-green-500 text-white shadow-lg shadow-green-600/60"
-                        : "bg-zinc-800/40 border-green-400 hover:bg-green-600/10"
-                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400/70`}
+                        : "bg-zinc-800/40 border-green-400 hover:bg-green-600/10 text-green-100"
+                    } focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-400/70`}
                     title="Toggle Hidden Ability"
                     aria-label={`Toggle hidden ability for ${activeName}`}
                   >
@@ -587,11 +692,11 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                 )}
               </div>
             )}
-            <p className="mt-2 font-mono text-zinc-500">
+            <p className="mt-1.5 font-mono text-xs text-zinc-500">
               #{String(pokemon.id).padStart(3, "0")}
             </p>
             <div className="flex items-center gap-2">
-              <p className="max-w-[12.5rem] truncate text-center text-xl font-bold text-white sm:text-2xl">
+              <p className="max-w-[12.5rem] truncate text-center text-lg font-bold text-white">
                 {activeName}
               </p>
               {isVariety && (
@@ -600,7 +705,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                 </span>
               )}
             </div>
-            <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <div className="mt-1.5 flex flex-wrap justify-center gap-1.5">
               {activeTypes.map((t) => (
                 <span
                   key={t}
@@ -616,7 +721,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               type="button"
               disabled={loading || busy}
               onClick={handleToggle}
-              className={`mt-4 w-full rounded-lg py-2 font-medium transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 ${
+              className={`mt-4 w-full rounded-lg py-2 text-sm font-medium transition disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 ${
                 caught
                   ? "bg-[var(--pokedex-screen)] text-zinc-900"
                   : "bg-zinc-600 text-zinc-300 hover:bg-zinc-500"
@@ -625,313 +730,452 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               {busy ? "…" : caught ? "Caught ✓" : "Mark as Caught"}
             </button>
           </div>
+        </div>
+        <div className="flex-1 space-y-3">
+          {activeTab === "stats" ? (
+            <div className="space-y-3">
+              {/* SYNTHESIZED DATA DASHBOARD */}
 
-          {activeTab === "overview" && pokemon.obtainingMethod && (
-            <div className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
-              <h3 className="mb-2 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Obtained
-              </h3>
-              <p className="text-sm text-zinc-200">{pokemon.obtainingMethod}</p>
-            </div>
-          )}
+              {/* SYNTHESIZED DATA DASHBOARD */}
+              <div className="grid gap-4 grid-cols-1 xl:grid-cols-5">
+                {/* RADAR CHART - Takes 1 column on wide, full on mobile */}
+                <div className="xl:col-span-2 rounded-xl border border-[var(--pokedex-border)] bg-zinc-900/40 p-3 shadow-inner flex flex-col items-center justify-center min-h-[320px]">
+                    <h3 className="w-full mb-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center justify-between">
+                        Base Stats
+                        <span className="text-[9px] font-normal lowercase">Spider Visualization</span>
+                    </h3>
+                    <RadarChart 
+                      stats={activeStats} 
+                      colorClass={primaryType === 'Normal' ? 'text-zinc-400' : (getTypeClass(primaryType).split(' ').find(c => c.startsWith('bg-'))?.replace('bg-', 'text-') || 'text-rose-500')} 
+                    />
+                </div>
 
-          {detailsLoading && (
-            <div className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
-              <div className="h-5 w-28 rounded bg-zinc-700/70 animate-pulse" />
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div
-                    key={`evo-skeleton-${i}`}
-                    className="h-24 rounded-lg bg-zinc-700/70 animate-pulse"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          {!detailsLoading && evolutions.length > 0 && (
-            <div className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
-              <h3 className="mb-3 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Evolutions
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {evolutions.map((evo) => (
-                  <Link
-                    key={evo.id}
-                    href={`/pokedex/${evo.id}`}
-                    className="flex flex-col items-center rounded-lg bg-zinc-900/60 p-2 transition hover:bg-zinc-800 cursor-pointer"
-                  >
-                    {evo.sprite ? (
-                      <Image
-                        src={evo.sprite}
-                        alt={evo.name}
-                        width={80}
-                        height={80}
-                        className="h-16 w-16 object-contain mb-1"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 flex items-center justify-center text-xl text-zinc-600 mb-1">
-                        ?
-                      </div>
-                    )}
-                    <p className="text-xs font-semibold text-white text-center">
-                      {evo.name}
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      #{String(evo.id).padStart(3, "0")}
-                    </p>
-                    {evo.types.length > 0 && (
-                      <div className="mt-1 flex gap-1 flex-wrap justify-center">
-                        {evo.types.map((t) => (
+                {/* TYPE ANALYSIS GRID - Takes 4 columns on desktop, 3 on xl */}
+                <div className="xl:col-span-3 grid gap-3 grid-cols-1 md:grid-cols-2">
+                  <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3 shadow-inner">
+                    <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center justify-between">
+                      Weak to
+                      <span className="text-[9px] font-normal lowercase text-zinc-500">2x/4x</span>
+                    </h3>
+                    {effectiveness.weak.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {effectiveness.weak.map((w) => (
                           <span
-                            key={t}
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${getTypeClass(
-                              t,
-                            )}`}
+                            key={w.type}
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-black uppercase shadow-sm ${getTypeClass(
+                              w.type,
+                            )} transition-transform hover:scale-105`}
                           >
-                            {t}
+                            <span>{w.type}</span>
+                            <span className="opacity-90 text-[10px] bg-black/20 px-1.5 rounded font-mono">{w.multiplier}x</span>
                           </span>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-[10px] text-zinc-500 italic">No weaknesses.</p>
                     )}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 space-y-4">
-          <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-[var(--pokedex-screen)]">
-                Competitive (SV Singles)
-              </h3>
-              <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-200">
-                Suggested set
-              </span>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="space-y-3 text-sm text-zinc-300">
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-900/60 px-3 py-2">
-                  <span className="text-zinc-400">Role</span>
-                  <span className="font-semibold text-white">
-                    {recommendation.role}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-900/60 px-3 py-2">
-                  <span className="text-zinc-400">Nature</span>
-                  <span className="font-semibold text-white">
-                    {activeSmogonNature ?? recommendation.nature}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-900/60 px-3 py-2">
-                  <span className="text-zinc-400">EVs</span>
-                  <span className="font-mono text-zinc-200">
-                    {recommendation.evs}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg bg-zinc-900/60 px-3 py-2">
-                  <span className="text-zinc-400">IVs</span>
-                  <span className="font-mono text-zinc-200">
-                    {recommendation.ivs}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {!isVariety && (
-                  <div className="rounded-lg bg-zinc-900/60 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                      Items
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {competitiveExtras.items.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full border border-zinc-700/80 bg-zinc-800/70 px-2.5 py-1 text-xs font-semibold text-zinc-200"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                      {megaStoneItems.map((stone) => (
-                        <span
-                          key={stone.name}
-                          className={
-                            stone.suggested
-                              ? "rounded-full border border-rose-500/60 bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-100"
-                              : "rounded-full border border-zinc-700/80 bg-zinc-800/70 px-2.5 py-1 text-xs font-semibold text-zinc-200"
-                          }
-                        >
-                          {stone.name}
-                          {stone.suggested ? " · Suggested" : ""}
-                        </span>
-                      ))}
-                    </div>
                   </div>
-                )}
-                {!isVariety && (
-                  <div className="rounded-lg bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                      Hidden Ability
-                    </p>
-                    {shouldRecommendHiddenAbility ? (
-                      <div className="mt-2 space-y-1">
-                        <p className="font-semibold text-emerald-200">
-                          Yes — {activeAbilities.hidden.join(", ")}
-                        </p>
-                        {hiddenAbilityLowerChain.length > 0 && (
-                          <p className="text-xs text-emerald-200/80">
-                            Applies to:{" "}
-                            {hiddenAbilityLowerChain
-                              .map((e) => e.name)
-                              .join(", ")}
-                          </p>
-                        )}
-                        {hiddenAbilityNotes.length > 0 && (
-                          <p className="text-xs text-emerald-200/80">
-                            Recommended: {hiddenAbilityNotes.join(" · ")}
-                          </p>
-                        )}
+
+                  <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-4 shadow-inner">
+                    <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-emerald-400 flex items-center justify-between">
+                      Resistant
+                      <span className="text-[9px] font-normal lowercase text-zinc-500">0.5x/0.25x</span>
+                    </h3>
+                    {effectiveness.resistant.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {effectiveness.resistant.map((r) => (
+                          <span
+                            key={r.type}
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-black uppercase shadow-sm ${getTypeClass(
+                              r.type,
+                            )} transition-transform hover:scale-105`}
+                          >
+                            <span>{r.type}</span>
+                            <span className="opacity-90 text-[10px] bg-black/20 px-1.5 rounded font-mono">{r.multiplier}x</span>
+                          </span>
+                        ))}
                       </div>
                     ) : (
-                      <p className="mt-2 text-zinc-400">
-                        Hidden Ability isn’t required for this set.
-                      </p>
+                      <p className="text-[10px] text-zinc-500 italic">No resists.</p>
                     )}
                   </div>
+
+                  <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-4 shadow-inner">
+                    <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-blue-400 flex items-center justify-between">
+                      Immune
+                      <span className="text-[9px] font-normal lowercase text-zinc-500">0x</span>
+                    </h3>
+                    {effectiveness.immune.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {effectiveness.immune.map((i) => (
+                          <span
+                            key={i.type}
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-black uppercase shadow-sm ${getTypeClass(
+                              i.type,
+                            )} transition-transform hover:scale-105`}
+                          >
+                            <span>{i.type}</span>
+                            <span className="opacity-90 text-[10px] bg-black/20 px-1.5 rounded font-mono">0x</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-zinc-500 italic">No immunities.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-4 shadow-inner">
+                    <h3 className="mb-4 text-[10px] font-black uppercase tracking-widest text-amber-500 flex items-center justify-between">
+                      Offense
+                      <span className="text-[9px] font-normal lowercase text-zinc-500">Coverage</span>
+                    </h3>
+                    {strengths.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {strengths.map((s) => (
+                          <span
+                            key={s.type}
+                            className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-black uppercase shadow-sm ${getTypeClass(
+                              s.type,
+                            )} transition-transform hover:scale-105`}
+                          >
+                            <span>{s.type}</span>
+                            <span className="opacity-90 text-[10px] bg-black/20 px-1.5 rounded font-mono">2x</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-zinc-500 italic">No coverage.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {activeVarietyIndex === -1 && pokemon.obtainingMethod && (
+                  <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4">
+                    <h3 className="mb-2 text-sm font-black uppercase tracking-widest text-[var(--pokedex-screen)]">
+                      Obtained
+                    </h3>
+                    <p className="text-xs text-zinc-300 leading-relaxed">{pokemon.obtainingMethod}</p>
+                  </div>
                 )}
-                <p className="text-xs text-zinc-400">{recommendation.note}</p>
+
+                {!detailsLoading && evolutions.length > 0 && (
+                  <div className={`rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4 ${activeVarietyIndex !== -1 || !pokemon.obtainingMethod ? 'md:col-span-2' : ''}`}>
+                    <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-[var(--pokedex-screen)]">
+                      Evolutions
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {evolutions.map((evo) => (
+                        <Link
+                          key={evo.id}
+                          href={`/pokedex/${evo.id}`}
+                          className="flex items-center gap-3 rounded-xl bg-zinc-900/40 p-2 border border-zinc-800/50 transition hover:bg-zinc-800 hover:border-zinc-700 min-w-[140px]"
+                        >
+                          <div className="h-10 w-10 flex-shrink-0">
+                            {evo.sprite ? (
+                              <Image
+                                src={evo.sprite}
+                                alt={evo.name}
+                                width={40}
+                                height={40}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-xs text-zinc-600 bg-zinc-800 rounded">?</div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-white truncate leading-tight">{evo.name}</p>
+                            <p className="text-[9px] font-mono text-zinc-500">#{String(evo.id).padStart(3, "0")}</p>
+                            <div className="mt-0.5 flex gap-1">
+                              {evo.types.slice(0, 1).map((t) => (
+                                <span key={t} className={`px-1 py-0.5 rounded text-[8px] font-bold uppercase ${getTypeClass(t)}`}>{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {detailsLoading && (
+                  <div className="md:col-span-2 rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4">
+                    <div className="h-4 w-24 rounded bg-zinc-700/70 animate-pulse mb-3" />
+                    <div className="flex gap-3">
+                       {[1, 2, 3].map(i => <div key={i} className="h-14 w-32 rounded-xl bg-zinc-800 animate-pulse" />)}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
-              <h3 className="mb-3 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Type Counters
-              </h3>
-              {weaknesses.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {weaknesses.map((w) => (
-                    <span
-                      key={w.type}
-                      className={`flex items-center gap-1 rounded px-2 py-1 text-sm font-medium ${getTypeClass(
-                        w.type,
-                      )}`}
-                    >
-                      <span>{w.type}</span>
-                      <span className="opacity-80 text-[10px] bg-black/20 px-1 rounded">{w.multiplier}x</span>
+          ) : (
+            /* PRO TAB CONTENT */
+            <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+                <div className="rounded-2xl border border-[var(--pokedex-border)] bg-zinc-900/60 p-4 shadow-xl">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h3 className="text-lg font-bold text-[var(--pokedex-screen)] flex items-center gap-2">
+                      <span className="text-amber-500 italic text-sm">✨</span> Pro Analysis
+                      <span className="text-[10px] font-normal text-zinc-500 lowercase">(SV Singles)</span>
+                    </h3>
+                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-200">
+                      Suggested Set
                     </span>
-                  ))}
+                  </div>
+                  
+                  <div className="grid gap-4 lg:grid-cols-5">
+                    {/* SPECS COLUMN */}
+                    <div className="lg:col-span-2 space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">Role</p>
+                          <p className="text-xs font-bold text-white truncate">{recommendation.role}</p>
+                        </div>
+                        <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">Nature</p>
+                          <p className="text-xs font-bold text-white truncate">{activeSmogonNature ?? recommendation.nature}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">EV Spread</p>
+                        <p className="text-[11px] font-mono text-zinc-200">{recommendation.evs}</p>
+                      </div>
+
+                      <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-1">Preferred Items</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5 font-bold uppercase">
+                          {competitiveExtras.items.map((item) => (
+                            <span key={item} className="text-[9px] text-zinc-100 bg-zinc-700/50 px-1.5 py-0.5 rounded-md border border-zinc-600/30">
+                              {item}
+                            </span>
+                          ))}
+                          {megaStoneItems.map((stone) => (
+                            <span key={stone.name} className={`text-[9px] px-1.5 py-0.5 rounded-md border ${stone.suggested ? 'text-rose-100 bg-rose-500/20 border-rose-500/40' : 'text-zinc-100 bg-zinc-700/50 border-zinc-600/30'}`}>
+                              {stone.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-zinc-500 italic leading-relaxed px-1">Note: {recommendation.note}</p>
+                    </div>
+
+                    {/* ABILITIES COLUMN */}
+                    <div className="lg:col-span-3 space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-1">Abilities</h4>
+                          <div className="space-y-1.5">
+                            {detailsLoading ? (
+                                 Array.from({ length: 2 }).map((_, i) => (
+                                    <div key={i} className="h-8 w-full rounded-md bg-zinc-800/60 animate-pulse" />
+                                 ))
+                            ) : (
+                                activeAbilities.normal.map((a) => (
+                                    <div key={a} className="px-3 py-2 rounded-lg bg-zinc-800/80 border border-zinc-700/50 flex items-center justify-between group hover:border-zinc-500 transition-colors">
+                                        <span className="text-[11px] font-bold text-zinc-100 group-hover:text-white uppercase tracking-tight">{a}</span>
+                                        <span className="text-[8px] text-zinc-600 font-black uppercase tracking-tighter">BASE</span>
+                                    </div>
+                                ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-[9px] font-black uppercase tracking-widest text-amber-500 ml-1">Hidden Talent</h4>
+                          {detailsLoading ? (
+                              <div className="h-10 w-full rounded-md bg-zinc-800/60 animate-pulse" />
+                          ) : activeAbilities.hidden.length > 0 ? (
+                              activeAbilities.hidden.map((a) => (
+                                  <div key={a} className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                                      <div className="flex items-center justify-between mb-1.5">
+                                          <span className="text-[11px] font-bold text-amber-200 uppercase tracking-tight">{a}</span>
+                                          <span className="text-[8px] bg-amber-500/20 text-amber-500 px-1 py-0.5 rounded font-black uppercase tracking-widest">HIDDEN</span>
+                                      </div>
+                                      {shouldRecommendHiddenAbility && (
+                                          <div className="mt-1 flex items-center gap-1.5 text-[9px] text-emerald-400 font-bold">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                              Recommended
+                                          </div>
+                                      )}
+                                  </div>
+                              ))
+                          ) : (
+                              <div className="p-2.5 rounded-lg bg-zinc-800/30 border border-dashed border-zinc-700 flex items-center justify-center">
+                                  <span className="text-[10px] text-zinc-600 uppercase font-bold italic">No Hidden Ability</span>
+                              </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isVariety && eggMoveEntry && (
+                        <div className="pt-3 border-t border-zinc-800/50">
+                          <h4 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 ml-1">
+                            Egg Moves <span className="text-zinc-500/50 font-normal normal-case">({eggMoveEntry.eggGroups})</span>
+                          </h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {eggMoveEntry.moves.map((move) => (
+                              <span key={move} className="px-2 py-1 rounded bg-zinc-900/60 text-[9px] font-bold text-zinc-400 border border-zinc-800 hover:border-zinc-700 transition-colors">
+                                {move}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* MOVES SECTION */}
+                  <div className="mt-6 pt-6 border-t border-zinc-800/50">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-[var(--pokedex-screen)] mb-4">
+                      Moves & Learnset
+                    </h3>
+
+                    {/* Moves Tabs */}
+                    <div className="flex flex-wrap gap-1.5 mb-4 bg-zinc-900/40 p-1.5 rounded-xl border border-zinc-800 w-fit">
+                      <button
+                        onClick={() => {
+                          setMovesTab("level-up");
+                          if (!pokemonMoves && !movesLoading) {
+                            setMovesLoading(true);
+                            fetchPokemonMoves(pokemon.id).then((data) => {
+                              setPokemonMoves(data);
+                              setMovesLoading(false);
+                            });
+                          }
+                        }}
+                        className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          movesTab === "level-up"
+                            ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        Level-Up
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMovesTab("tm");
+                          if (!pokemonMoves && !movesLoading) {
+                            setMovesLoading(true);
+                            fetchPokemonMoves(pokemon.id).then((data) => {
+                              setPokemonMoves(data);
+                              setMovesLoading(false);
+                            });
+                          }
+                        }}
+                        className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          movesTab === "tm"
+                            ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        TM/TR
+                      </button>
+                      <button
+                        onClick={() => setMovesTab("egg")}
+                        className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          movesTab === "egg"
+                            ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        Egg
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMovesTab("tutor");
+                          if (!pokemonMoves && !movesLoading) {
+                            setMovesLoading(true);
+                            fetchPokemonMoves(pokemon.id).then((data) => {
+                              setPokemonMoves(data);
+                              setMovesLoading(false);
+                            });
+                          }
+                        }}
+                        className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          movesTab === "tutor"
+                            ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        Tutor
+                      </button>
+                    </div>
+
+                    {/* Moves Content */}
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+                      {movesLoading ? (
+                        <div className="text-center py-8">
+                          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-red-600 border-r-transparent"></div>
+                          <p className="mt-2 text-sm text-zinc-500">Loading moves...</p>
+                        </div>
+                      ) : pokemonMoves ? (
+                        <>
+                          {movesTab === "level-up" && (
+                            <MovesTimeline moves={pokemonMoves.moves} pokemonName={pokemonMoves.pokemonName} />
+                          )}
+                          {movesTab === "tm" && (
+                            <TMCompatibility moves={pokemonMoves.moves} pokemonName={pokemonMoves.pokemonName} />
+                          )}
+                          {movesTab === "egg" && (
+                            <div className="space-y-2">
+                              {pokemonMoves.moves.filter((m) => m.method === "egg").length > 0 ? (
+                                pokemonMoves.moves
+                                  .filter((m) => m.method === "egg")
+                                  .map((learnedMove) => (
+                                    <MoveCard
+                                      key={learnedMove.move.id}
+                                      move={learnedMove.move}
+                                      variant="compact"
+                                    />
+                                  ))
+                              ) : (
+                                <p className="text-center py-8 text-zinc-500">No egg moves available</p>
+                              )}
+                            </div>
+                          )}
+                          {movesTab === "tutor" && (
+                            <div className="space-y-2">
+                              {pokemonMoves.moves.filter((m) => m.method === "tutor").length > 0 ? (
+                                pokemonMoves.moves
+                                  .filter((m) => m.method === "tutor")
+                                  .map((learnedMove) => (
+                                    <MoveCard
+                                      key={learnedMove.move.id}
+                                      move={learnedMove.move}
+                                      variant="compact"
+                                    />
+                                  ))
+                              ) : (
+                                <p className="text-center py-8 text-zinc-500">No tutor moves available</p>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-sm text-zinc-500 mb-3">Click a tab to load moves</p>
+                          <button
+                            onClick={() => {
+                              setMovesLoading(true);
+                              fetchPokemonMoves(pokemon.id).then((data) => {
+                                setPokemonMoves(data);
+                                setMovesLoading(false);
+                              });
+                            }}
+                            className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition"
+                          >
+                            Load Moves
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-sm text-zinc-400">No major weaknesses.</p>
-              )}
-            </div>
-            <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
-              <h3 className="mb-3 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Effective Against
-              </h3>
-              {strengths.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {strengths.map((s) => (
-                    <span
-                      key={s.type}
-                      className={`flex items-center gap-1 rounded px-2 py-1 text-sm font-medium ${getTypeClass(
-                        s.type,
-                      )}`}
-                    >
-                      <span>{s.type}</span>
-                      <span className="opacity-80 text-[10px] bg-black/20 px-1 rounded">{s.multiplier}x</span>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-400">
-                  No major strengths.
-                </p>
-              )}
-            </div>
-            <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
-              <h3 className="mb-2 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Abilities
-              </h3>
-              {detailsLoading ? (
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={`ability-skeleton-${i}`}
-                      className="h-7 w-24 rounded bg-zinc-700/70 animate-pulse"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <ul className="flex flex-wrap gap-2">
-                  {activeAbilities.normal.map((a) => (
-                    <li
-                      key={a}
-                      className="rounded bg-zinc-700 px-2 py-1 text-sm text-zinc-200"
-                    >
-                      {a.charAt(0).toUpperCase() + a.slice(1)}
-                    </li>
-                  ))}
-                  {activeAbilities.hidden.map((a) => (
-                    <li
-                      key={a}
-                      className="rounded bg-amber-600/80 px-2 py-1 text-sm text-amber-50 font-semibold border border-amber-500/50"
-                      title="Hidden Ability"
-                    >
-                      ✨ {a.charAt(0).toUpperCase() + a.slice(1)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-          {!isVariety && eggMoveEntry && (
-            <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3">
-              <h3 className="mb-2 text-lg font-semibold text-[var(--pokedex-screen)]">
-                Egg Moves
-              </h3>
-              <p className="text-xs text-zinc-400">
-                Egg Groups: {eggMoveEntry.eggGroups}
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {eggMoveEntry.moves.map((move) => (
-                  <li
-                    key={move}
-                    className="rounded bg-zinc-700 px-2 py-1 text-xs font-semibold text-zinc-100"
-                  >
-                    {move}
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
-          <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4">
-            <h3 className="mb-4 text-lg font-semibold text-[var(--pokedex-screen)]">
-              Stats
-            </h3>
-            <ul className="space-y-2">
-              {activeStats.map((s) => {
-                const statPercent = Math.min(100, (s.value / 255) * 100);
-                return (
-                  <li
-                    key={s.name}
-                    className="rounded-lg bg-zinc-900/60 px-3 py-2"
-                  >
-                    <div className="mb-1 flex items-center justify-between text-xs text-zinc-400">
-                      <span className="uppercase tracking-wide">{s.name}</span>
-                      <span className="font-mono text-zinc-200">{s.value}</span>
-                    </div>
-                    <progress
-                      value={statPercent}
-                      max={100}
-                      className="stat-progress"
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
           {detailsError && (
             <p className="rounded-lg bg-red-900/50 px-4 py-2 text-sm text-red-200">
               {detailsError}

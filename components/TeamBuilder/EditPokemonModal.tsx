@@ -6,7 +6,8 @@ import type { TeamMember, StatBlock } from "@/types/team";
 import { MAX_EVS, MAX_SINGLE_EV, MAX_IV, DEFAULT_EVS, DEFAULT_IVS } from "@/types/team";
 import { ItemSelector } from "./ItemSelector";
 import { MoveSelector } from "./MoveSelector";
-import { getPokemonById } from "@/lib/pokeapi";
+import { getPokemonById, getMoveDetails } from "@/lib/pokeapi";
+import { TYPE_COLORS } from "@/lib/typeEffectiveness";
 
 interface EditPokemonModalProps {
   member: TeamMember;
@@ -46,16 +47,30 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
   useEffect(() => {
     setEdited(member);
     
-    // Fetch available abilities if missing (legacy members)
-    if (member && isOpen && (!member.availableAbilities || member.availableAbilities.length === 0)) {
-        getPokemonById(member.id).then(details => {
-            if (details && details.abilities) {
-                setEdited(prev => ({
-                    ...prev,
-                    availableAbilities: details.abilities
-                }));
-            }
-        });
+    // Fetch available abilities and move types if missing (legacy members)
+    if (member && isOpen) {
+        const needsAbilities = !member.availableAbilities || member.availableAbilities.length === 0;
+        const missingMoves = member.moves.filter(m => m && (!member.moveTypes || !member.moveTypes[m]));
+        
+        if (needsAbilities) {
+            getPokemonById(member.id).then(details => {
+                if (details && details.abilities) {
+                    setEdited(prev => ({ ...prev, availableAbilities: details.abilities }));
+                }
+            });
+        }
+        
+        if (missingMoves.length > 0) {
+            Promise.all(missingMoves.map(m => getMoveDetails(m))).then(details => {
+                const newMoveTypes = { ...(member.moveTypes || {}) };
+                details.forEach((d: any) => {
+                    if (d) newMoveTypes[d.name] = d.type;
+                });
+                if (Object.keys(newMoveTypes).length > Object.keys(member.moveTypes || {}).length) {
+                    setEdited(prev => ({ ...prev, moveTypes: newMoveTypes }));
+                }
+            });
+        }
     }
   }, [member, isOpen]);
 
@@ -97,11 +112,17 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
     setSelectorOpen(null);
   };
 
-  const handleMoveSelect = (move: string) => {
+  const handleMoveSelect = (moveName: string, moveType?: string) => {
     if (activeMoveIndex === null) return;
     const newMoves = [...edited.moves];
-    newMoves[activeMoveIndex] = move;
-    setEdited(prev => ({ ...prev, moves: newMoves }));
+    newMoves[activeMoveIndex] = moveName;
+    
+    const newMoveTypes = { ...(edited.moveTypes || {}) };
+    if (moveType) {
+        newMoveTypes[moveName] = moveType;
+    }
+    
+    setEdited(prev => ({ ...prev, moves: newMoves, moveTypes: newMoveTypes }));
     setSelectorOpen(null);
     setActiveMoveIndex(null);
   };
@@ -312,19 +333,23 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
                         <div key={i}>
                             <label className="block text-xs font-semibold text-zinc-500 mb-1">Move {i + 1}</label>
                             <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={edited.moves[i] || ""}
-                                    readOnly
-                                    placeholder={`Move ${i + 1}`}
-                                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none cursor-default opacity-80"
-                                />
+                                <div className={`flex-1 flex items-center border border-zinc-700 rounded-lg px-3 py-2 transition shadow-sm ${
+                                    (() => {
+                                        const move = edited.moves[i];
+                                        const type = move ? edited.moveTypes?.[move] : null;
+                                        if (!type) return "bg-zinc-800";
+                                        const capitalized = type.charAt(0).toUpperCase() + type.slice(1);
+                                        return TYPE_COLORS[capitalized] || "bg-zinc-800";
+                                    })()
+                                } text-white font-bold`}>
+                                   {edited.moves[i] || `Move ${i + 1}`}
+                                </div>
                                 <button 
                                     onClick={() => {
                                         setActiveMoveIndex(i);
                                         setSelectorOpen("move");
                                     }}
-                                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold transition flex items-center gap-2"
+                                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-zinc-600 shadow-sm"
                                 >
                                     🔍 Search
                                 </button>
@@ -356,6 +381,10 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
 
       <MoveSelector
         isOpen={selectorOpen === "move"}
+        pokemonId={edited.id}
+        pokemonName={edited.name}
+        pokemonTypes={edited.types}
+        stats={edited.baseStats || DEFAULT_IVS}
         onClose={() => {
             setSelectorOpen(null);
             setActiveMoveIndex(null);
