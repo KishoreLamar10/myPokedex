@@ -59,7 +59,7 @@ export function parseShowdownFormat(text: string): TeamMember[] {
             // Moves
             else if (line.startsWith('-')) {
                 const moveName = line.substring(1).trim();
-                member.moves!.push({ name: moveName, type: '' }); // Type will be filled later
+                member.moves!.push(moveName);
             }
         }
 
