@@ -11,6 +11,8 @@ import { EditPokemonModal } from "@/components/TeamBuilder/EditPokemonModal";
 import { TeamCoverage } from "@/components/TeamCoverage";
 import { ImportExportModal } from "@/components/TeamBuilder/ImportExportModal";
 import { SynergyDashboard } from "@/components/TeamBuilder/SynergyDashboard";
+import { DamageCalculator } from "@/components/TeamBuilder/DamageCalculator";
+import { TeamTemplates } from "@/components/TeamBuilder/TeamTemplates";
 import type { Team, TeamMember, StatBlock } from "@/types/team";
 import { DEFAULT_EVS, DEFAULT_IVS } from "@/types/team";
 import { useCaught } from "@/components/CaughtProvider";
@@ -28,6 +30,8 @@ export default function TeamBuilderPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [importExportOpen, setImportExportOpen] = useState(false);
   const [synergyVisible, setSynergyVisible] = useState(false);
+  const [damageCalcOpen, setDamageCalcOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState<number | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -229,13 +233,22 @@ export default function TeamBuilderPage() {
           <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-[var(--pokedex-screen)]">Team Builder</h1>
           </div>
-          <button
-            onClick={handleCreateTeam}
-            disabled={creating}
-            className="px-4 py-2 bg-[var(--pokedex-red)] text-white rounded-lg font-semibold hover:brightness-110 disabled:opacity-50"
-          >
-            {creating ? "Creating..." : "+ New Team"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTemplatesOpen(true)}
+              className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg font-semibold transition flex items-center gap-2"
+            >
+              <span>📋</span>
+              <span>Templates</span>
+            </button>
+            <button
+              onClick={handleCreateTeam}
+              disabled={creating}
+              className="px-4 py-2 bg-[var(--pokedex-red)] text-white rounded-lg font-semibold hover:brightness-110 disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "+ New Team"}
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -266,6 +279,13 @@ export default function TeamBuilderPage() {
                         className="bg-transparent text-xl font-bold focus:outline-none focus:border-b border-[var(--pokedex-screen)] w-full max-w-md"
                     />
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setDamageCalcOpen(true)}
+                            className="px-3 py-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm font-semibold transition flex items-center gap-2"
+                        >
+                            <span>⚔️</span>
+                            <span>Damage Calc</span>
+                        </button>
                         <button
                             onClick={() => {
                                 setActiveTeamId(team.id);
@@ -355,6 +375,35 @@ export default function TeamBuilderPage() {
           }}
         />
       )}
+
+      <DamageCalculator
+        isOpen={damageCalcOpen}
+        onClose={() => setDamageCalcOpen(false)}
+      />
+
+      <TeamTemplates
+        isOpen={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        onImport={async (importedPokemon) => {
+          // Create a new team with the imported Pokemon
+          if (!userId) {
+            setError('You must be logged in to import teams');
+            return;
+          }
+          try {
+            const supabase = createClient();
+            const newTeam = await createTeam(supabase, userId, 'Imported Team');
+            if (newTeam) {
+              await updateTeam(supabase, newTeam.id, { pokemon: importedPokemon });
+              setTeams([...teams, { ...newTeam, pokemon: importedPokemon }]);
+              setTemplatesOpen(false);
+            }
+          } catch (err) {
+            console.error('Failed to import team:', err);
+            setError('Failed to import team');
+          }
+        }}
+      />
     </div>
   );
 }

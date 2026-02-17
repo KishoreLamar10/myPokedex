@@ -18,6 +18,7 @@ import {
   normalizePokemonKey,
 } from "@/lib/obtaining";
 import { useCaught } from "@/components/CaughtProvider";
+import { AdvancedFilters, DEFAULT_ADVANCED_FILTERS, type AdvancedFilterState } from "@/components/AdvancedFilters";
 import type { PokemonListItem } from "@/types/pokemon";
 
 const BATCH_SIZE = 150;
@@ -82,6 +83,8 @@ export function PokedexWithLoadMore({
     haRecommended: false,
     eggMoves: false,
   });
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterState>(DEFAULT_ADVANCED_FILTERS);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [metaById, setMetaById] = useState<
     Record<number, { hasMega?: boolean }>
   >({});
@@ -504,7 +507,29 @@ export function PokedexWithLoadMore({
             </button>
           ))}
         </div>
+
+        {/* Advanced Filters Toggle */}
+        <button
+          onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
+          className={`rounded-lg border-2 px-4 py-2 text-sm font-semibold transition ${
+            advancedFiltersOpen
+              ? 'bg-[var(--pokedex-red)] border-[var(--pokedex-red)] text-white'
+              : 'bg-zinc-800 border-[var(--pokedex-border)] text-zinc-200 hover:border-[var(--pokedex-red)]/70'
+          }`}
+        >
+          🔍 Advanced Filters {advancedFiltersOpen ? '▼' : '▶'}
+        </button>
       </div>
+
+      {/* Advanced Filters Panel */}
+      {advancedFiltersOpen && (
+        <AdvancedFilters
+          isOpen={advancedFiltersOpen}
+          filters={advancedFilters}
+          onChange={setAdvancedFilters}
+          onReset={() => setAdvancedFilters(DEFAULT_ADVANCED_FILTERS)}
+        />
+      )}
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
