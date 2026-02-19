@@ -78,20 +78,20 @@ export function UserMenu() {
     <div ref={menuRef} className="relative flex items-center gap-2">
       <a
         href="/team-builder"
-        className="rounded-lg border border-zinc-700/80 bg-zinc-800/70 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
       >
         Team Builder
       </a>
       <a
         href="/journal"
-        className="rounded-lg border border-zinc-700/80 bg-zinc-800/70 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
       >
         Journey
       </a>
       <button
         type="button"
         onClick={() => setShowStats((prev) => !prev)}
-        className="rounded-lg border border-zinc-700/80 bg-zinc-800/70 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
       >
         Stats
       </button>
@@ -99,7 +99,7 @@ export function UserMenu() {
         onClick={handleLogout}
         disabled={loading}
         aria-label="Sign out"
-        className="rounded-lg bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-600 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70"
+        className="rounded-xl bg-zinc-800/80 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-300 transition-all hover:bg-rose-900/40 hover:text-rose-200 hover:scale-105 active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/70 border border-zinc-700/50"
       >
         {loading ? "Logging out..." : "Sign out"}
       </button>

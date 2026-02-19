@@ -181,7 +181,7 @@ function getCompetitiveExtras(
 }
 
 function RadarChart({ stats, colorClass }: { stats: { name: string; value: number }[]; colorClass: string }) {
-  const size = 300;
+  const size = 220;
   const center = size / 2;
   const radius = size * 0.35;
   const maxStat = 255;
@@ -202,7 +202,7 @@ function RadarChart({ stats, colorClass }: { stats: { name: string; value: numbe
   });
 
   return (
-    <div className="relative w-full aspect-square max-w-[300px] mx-auto flex items-center justify-center">
+    <div className="relative w-full aspect-square max-w-[220px] mx-auto flex items-center justify-center">
       <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full drop-shadow-xl overflow-visible">
         {/* Outer Hexagon Background */}
         <polygon
@@ -245,7 +245,7 @@ function RadarChart({ stats, colorClass }: { stats: { name: string; value: numbe
         {/* Labels */}
         {stats.map((stat, i) => {
           const angle = (i * 60 - 90) * (Math.PI / 180);
-          const labelRadius = radius + 30;
+          const labelRadius = radius + 20;
           const x = center + labelRadius * Math.cos(angle);
           const y = center + labelRadius * Math.sin(angle);
           
@@ -429,14 +429,6 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
         const shinyArt = data.shinyArtwork || "";
         if (artwork) {
           setOfficialArtwork(artwork);
-          const main = document.querySelector("main");
-          if (main) {
-            (main as HTMLElement).style.backgroundImage = `url('${artwork}')`;
-            (main as HTMLElement).style.backgroundSize = "contain";
-            (main as HTMLElement).style.backgroundRepeat = "no-repeat";
-            (main as HTMLElement).style.backgroundPosition = "right center";
-            (main as HTMLElement).style.backgroundAttachment = "fixed";
-          }
         }
         if (shinyArt) {
           setShinyArtwork(shinyArt);
@@ -623,7 +615,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
         </div>
       </div>
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
-        <div className="flex flex-col items-center gap-3 md:w-64">
+        <div className="flex flex-col items-center gap-3 md:w-80">
           <div className="flex w-full flex-col items-center rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800/80 p-4">
             {activeArtwork ? (
               <Image
@@ -633,9 +625,9 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                     : activeArtwork
                 }
                 alt={activeName}
-                width={144}
-                height={144}
-                className="h-36 w-36 object-contain"
+                width={240}
+                height={240}
+                className="h-60 w-60 object-contain"
               />
             ) : (
               <span className="text-8xl text-zinc-600">?</span>
@@ -696,7 +688,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               #{String(pokemon.id).padStart(3, "0")}
             </p>
             <div className="flex items-center gap-2">
-              <p className="max-w-[12.5rem] truncate text-center text-lg font-bold text-white">
+              <p className="max-w-[12.5rem] truncate text-center text-xl font-bold text-white">
                 {activeName}
               </p>
               {isVariety && (
@@ -737,9 +729,9 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               {/* SYNTHESIZED DATA DASHBOARD */}
 
               {/* SYNTHESIZED DATA DASHBOARD */}
-              <div className="grid gap-4 grid-cols-1 xl:grid-cols-5">
+              <div className="grid gap-4 grid-cols-1 xl:grid-cols-6">
                 {/* RADAR CHART - Takes 1 column on wide, full on mobile */}
-                <div className="xl:col-span-2 rounded-xl border border-[var(--pokedex-border)] bg-zinc-900/40 p-3 shadow-inner flex flex-col items-center justify-center min-h-[320px]">
+                <div className="xl:col-span-2 rounded-xl border border-[var(--pokedex-border)] bg-zinc-900/40 p-3 shadow-inner flex flex-col items-center justify-center min-h-[250px]">
                     <h3 className="w-full mb-1.5 text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center justify-between">
                         Base Stats
                         <span className="text-[9px] font-normal lowercase">Spider Visualization</span>
@@ -751,7 +743,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                 </div>
 
                 {/* TYPE ANALYSIS GRID - Takes 4 columns on desktop, 3 on xl */}
-                <div className="xl:col-span-3 grid gap-3 grid-cols-1 md:grid-cols-2">
+                <div className="xl:col-span-4 grid gap-3 grid-cols-1 md:grid-cols-2">
                   <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/50 p-3 shadow-inner">
                     <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-red-500 flex items-center justify-between">
                       Weak to

@@ -50,7 +50,7 @@ export function PokemonSearch() {
         placeholder="Search Pokémon..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded-full border-2 border-[var(--pokedex-border)] bg-zinc-800 px-5 py-2.5 text-white placeholder-zinc-500 outline-none transition focus:border-[var(--pokedex-red)] focus:ring-2 focus:ring-[var(--pokedex-red)]/50 shadow-sm"
+        className="w-full rounded-full border border-zinc-700/50 bg-zinc-900/40 px-5 py-2.5 text-white placeholder-zinc-500 outline-none transition-all duration-300 focus:border-[var(--pokedex-red)]/50 focus:ring-4 focus:ring-[var(--pokedex-red)]/10 shadow-inner group"
       />
       {query && (
         <button
@@ -72,7 +72,7 @@ export function PokemonSearch() {
           ✕
         </button>
       )}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-8 text-zinc-600 pointer-events-none hidden md:block">
+      <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-8 text-zinc-500 pointer-events-none hidden md:block group-focus-within:text-[var(--pokedex-red)] transition-colors duration-300">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
