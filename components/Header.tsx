@@ -1,30 +1,48 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PokemonSearch } from "./PokemonSearch";
 import { FavoritePokemonIcon } from "./FavoritePokemonIcon";
 import { UserMenu } from "./UserMenu";
 import { ThemeToggle } from "./ThemeToggle";
+import { GlobalCaughtTracker } from "./GlobalCaughtTracker";
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/50 bg-zinc-950/60 backdrop-blur-xl transition-all duration-300">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4 md:px-10">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-2xl font-black tracking-tighter text-[var(--pokedex-red)] drop-shadow-[0_0_12px_rgba(227,53,13,0.4)] transition-all hover:brightness-125 active:scale-95"
-          >
-            My Pokédex
-          </Link>
-          <div className="hidden sm:block">
-            <FavoritePokemonIcon />
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/50 bg-zinc-950/60 backdrop-blur-xl transition-all duration-300 pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex flex-col gap-2 px-6 py-4 md:px-10 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="flex items-center justify-between gap-3 md:justify-start">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="text-2xl font-black tracking-tighter text-[var(--pokedex-red)] drop-shadow-[0_0_12px_rgba(227,53,13,0.4)] transition-all hover:brightness-125 active:scale-95 flex items-center gap-3"
+            >
+              <div className="w-10 h-10 rounded-full border-2 border-[var(--pokedex-red)] bg-zinc-800 flex items-center justify-center overflow-hidden shadow-lg shadow-[var(--pokedex-red)]/20">
+                <Image src="/icon-192.png" alt="" width={40} height={40} />
+              </div>
+              <span className="hidden sm:inline">My Pokédex</span>
+            </Link>
+            <Link
+              href="/map"
+              className="hidden md:block text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            >
+              Map
+            </Link>
+            <div className="hidden min-[400px]:block">
+              <FavoritePokemonIcon />
+            </div>
+            <GlobalCaughtTracker />
+          </div>
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
 
-        <div className="flex-1 max-w-md">
+        <div className="flex-1 w-full md:max-w-md">
           <PokemonSearch />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
           <Link
             href="/settings"
@@ -52,9 +70,6 @@ export function Header() {
               />
             </svg>
           </Link>
-          <div className="sm:hidden">
-            <FavoritePokemonIcon />
-          </div>
           <UserMenu />
         </div>
       </div>

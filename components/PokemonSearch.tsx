@@ -1,18 +1,23 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useDeferredValue } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
 
 export function PokemonSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
-  const deferredQuery = useDeferredValue(query);
+  const lastPushedQueryRef = useRef(initialQuery);
 
-  // Sync internal state with URL params
+  // Sync internal state with URL params ONLY when URL changes externally
   useEffect(() => {
-    setQuery(searchParams.get("q") || "");
+    const urlQuery = searchParams.get("q") || "";
+    if (urlQuery !== lastPushedQueryRef.current) {
+      setQuery(urlQuery);
+      lastPushedQueryRef.current = urlQuery;
+    }
   }, [searchParams]);
 
   // Update URL when query changes (debounced)
@@ -20,16 +25,19 @@ export function PokemonSearch() {
     const timeout = setTimeout(() => {
       const currentParams = new URLSearchParams(searchParams.toString());
       const currentQ = currentParams.get("q") || "";
+      const trimmedQuery = query.trim();
       
-      if (deferredQuery.trim() === currentQ) return;
+      if (trimmedQuery === currentQ) return;
 
-      if (deferredQuery.trim()) {
-        currentParams.set("q", deferredQuery.trim());
+      lastPushedQueryRef.current = trimmedQuery;
+
+      if (trimmedQuery) {
+        currentParams.set("q", trimmedQuery);
       } else {
         currentParams.delete("q");
       }
       
-      const isPokedex = window.location.pathname === "/pokedex";
+      const isPokedex = pathname === "/pokedex";
       const targetUrl = `/pokedex?${currentParams.toString()}`;
       
       if (isPokedex) {
@@ -40,27 +48,28 @@ export function PokemonSearch() {
     }, 300);
 
     return () => clearTimeout(timeout);
-  }, [deferredQuery, router, searchParams]);
+  }, [query, router, searchParams, pathname]);
 
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full max-w-md group">
       <input
         type="text"
         aria-label="Search Pokémon by name"
         placeholder="Search Pokémon..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded-full border border-zinc-700/50 bg-zinc-900/40 px-5 py-2.5 text-white placeholder-zinc-500 outline-none transition-all duration-300 focus:border-[var(--pokedex-red)]/50 focus:ring-4 focus:ring-[var(--pokedex-red)]/10 shadow-inner group"
+        className="w-full rounded-full border border-zinc-700/50 bg-zinc-900/40 pl-11 pr-10 py-2.5 text-white placeholder-zinc-500 outline-none transition-all duration-300 focus:border-[var(--pokedex-red)]/50 focus:ring-4 focus:ring-[var(--pokedex-red)]/10 shadow-inner"
       />
       {query && (
         <button
           type="button"
           onClick={() => {
             setQuery("");
+            lastPushedQueryRef.current = "";
             const params = new URLSearchParams(searchParams.toString());
             params.delete("q");
             const targetUrl = `/pokedex?${params.toString()}`;
-            if (window.location.pathname === "/pokedex") {
+            if (pathname === "/pokedex") {
               router.replace(targetUrl, { scroll: false });
             } else {
               router.push(targetUrl);
@@ -72,7 +81,7 @@ export function PokemonSearch() {
           ✕
         </button>
       )}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-8 text-zinc-500 pointer-events-none hidden md:block group-focus-within:text-[var(--pokedex-red)] transition-colors duration-300">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none group-focus-within:text-[var(--pokedex-red)] transition-colors duration-300">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>

@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import { PokedexGrid } from "@/components/PokedexGrid";
 import { TOTAL_POKEMON } from "@/lib/pokeapi";
 import { getEggMoveEntry } from "@/lib/eggMoves";
@@ -67,17 +68,18 @@ export function PokedexWithLoadMore({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [selectedLocation, setSelectedLocation] = useState("");
+  const [selectedLocation, setSelectedLocation] = useQueryState("location", parseAsString.withDefault(""));
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
   const [nameIdMap, setNameIdMap] = useState<Map<string, number> | null>(null);
-  const [targetCount, setTargetCount] = useState<number | null>(null);
   const [prefetchDone, setPrefetchDone] = useState(false);
   const [searchResults, setSearchResults] = useState<PokemonListItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [selectedType, setSelectedType] = useState<string>("");
-  const [selectedGen, setSelectedGen] = useState<number>(0); // 0 = All
-  const [sortBy, setSortBy] = useState<SortOption>("id");
+  const [selectedType, setSelectedType] = useQueryState("type", parseAsString.withDefault(""));
+  const [selectedGen, setSelectedGen] = useQueryState("gen", parseAsInteger.withDefault(0)); // 0 = All
+  const [selectedMethod, setSelectedMethod] = useQueryState("method", parseAsString.withDefault("All Methods"));
+  const [sortBy, setSortByRaw] = useQueryState("sort", parseAsString.withDefault("id"));
+  const setSortBy = (val: SortOption) => setSortByRaw(val);
   const [filters, setFilters] = useState({
     hasMega: false,
     haRecommended: false,
@@ -118,7 +120,12 @@ export function PokedexWithLoadMore({
       );
       if (!res.ok) throw new Error("Failed to load");
       const next = (await res.json()) as PokemonListItem[];
-      setList((prev) => [...prev, ...next].sort((a, b) => a.id - b.id));
+      setList((prev) => {
+        // Prevent concurrent triggers from appending duplicates
+        const existingIds = new Set(prev.map(p => p.id));
+        const newItems = next.filter(p => !existingIds.has(p.id));
+        return [...prev, ...newItems].sort((a, b) => a.id - b.id);
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load Pokémon");
     } finally {
@@ -238,7 +245,28 @@ export function PokedexWithLoadMore({
       items = items.filter((p) => p.id >= gen.start && p.id <= gen.end);
     }
 
-    // Obtaining filter
+    // Method filter
+    if (selectedMethod !== "All Methods") {
+      items = items.filter((p) => {
+        if (!p.obtainingMethod) return false;
+        const method = p.obtainingMethod.toLowerCase();
+        
+        switch (selectedMethod) {
+          case "Catching":
+            return method.includes("catch") && !method.includes("fishing") && !method.includes("rod");
+          case "Fishing/Surfing":
+            return method.includes("fishing") || method.includes("surf") || method.includes("rod");
+          case "Trading":
+            return method.includes("trade") || method.includes("trading");
+          case "Evolving":
+            return method.includes("evolve");
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Obtaining Filter from Modal
     items = applyObtainingFilter(items);
 
     // Meta filters
@@ -276,6 +304,7 @@ export function PokedexWithLoadMore({
     searchResults,
     selectedType,
     selectedGen,
+    selectedMethod,
     applyObtainingFilter,
     filters,
     metaById,
@@ -284,23 +313,41 @@ export function PokedexWithLoadMore({
 
   useEffect(() => {
     setSearchQuery(initialParams.q);
-    setTargetCount(initialParams.count);
   }, [initialParams]);
 
   useEffect(() => {
-    if (selectedLocation) {
-      setTargetCount(TOTAL_POKEMON);
-      return;
-    }
-    setTargetCount(initialParams.count);
-  }, [selectedLocation, initialParams.count]);
-
-  useEffect(() => {
+    const targetCount = initialParams.count;
     if (!targetCount || !hasMore || loading) return;
     if (targetCount > list.length) {
       loadMore();
     }
-  }, [targetCount, hasMore, loading, list.length, loadMore]);
+  }, [initialParams.count, hasMore, loading, list.length, loadMore]);
+
+  const expectedLocationCount = useMemo(() => {
+    if (!selectedLocation) return null;
+    return locationPokemonMap[selectedLocation]?.length || 0;
+  }, [selectedLocation, locationPokemonMap]);
+
+  // Auto-load more if a filter is active but we have very few results showing
+  useEffect(() => {
+    if (!hasMore || loading || searchQuery) return;
+
+    const needsMoreLocation = 
+      selectedLocation && 
+      processedList.length < (expectedLocationCount || 0) &&
+      processedList.length < 24; // Still cap it so we don't load too much if not looking
+
+    const needsMoreType = 
+      selectedType && 
+      processedList.length < 24;
+
+    if (needsMoreLocation || needsMoreType) {
+      const timeout = setTimeout(() => {
+        loadMore();
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedLocation, selectedType, processedList.length, expectedLocationCount, hasMore, loading, loadMore, searchQuery]);
 
   useEffect(() => {
     if (prefetchDone || loading || searchQuery.trim()) return;
@@ -481,32 +528,32 @@ export function PokedexWithLoadMore({
           ))}
         </select>
 
-        {/* Type Filter */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setSelectedType("")}
-            className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-              !selectedType
-                ? "bg-zinc-200 text-zinc-900"
-                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-            }`}
-          >
-            All Types
-          </button>
+        {/* Type Dropdown */}
+        <select
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          className="rounded-lg border-2 border-[var(--pokedex-border)] bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 outline-none transition focus:border-[var(--pokedex-red)]"
+        >
+          <option value="">All Types</option>
           {POKEMON_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => setSelectedType(type)}
-              className={`rounded-full px-3 py-1 text-xs font-bold transition ${
-                selectedType === type
-                  ? "bg-[var(--pokedex-red)] text-white shadow-[0_0_8px_rgba(227,53,13,0.5)]"
-                  : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-              }`}
-            >
+            <option key={type} value={type}>
               {type}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
+
+        {/* Obtaining Method Dropdown */}
+        <select
+          value={selectedMethod}
+          onChange={(e) => setSelectedMethod(e.target.value)}
+          className="rounded-lg border-2 border-[var(--pokedex-border)] bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 outline-none transition focus:border-[var(--pokedex-red)]"
+        >
+          <option value="All Methods">All Methods</option>
+          <option value="Catching">Catching</option>
+          <option value="Fishing/Surfing">Fishing / Surfing</option>
+          <option value="Trading">Trading</option>
+          <option value="Evolving">Evolving</option>
+        </select>
 
         {/* Advanced Filters Toggle */}
         <button
@@ -655,7 +702,7 @@ export function PokedexWithLoadMore({
           ))}
         </div>
       )}
-      {hasMore && (
+      {hasMore && (!selectedLocation || (expectedLocationCount !== null && processedList.length < expectedLocationCount)) && (
         <div ref={sentinelRef} className="flex justify-center py-8">
           {loading && <span className="text-zinc-500">Loading more…</span>}
         </div>

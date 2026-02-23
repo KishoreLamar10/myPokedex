@@ -5,7 +5,7 @@ import type {
   PokemonListItem,
   PokemonVariety,
 } from "@/types/pokemon";
-import { getObtainingMethod } from "@/lib/obtaining";
+import { getObtainingMethod, getPokemonLocations } from "@/lib/obtaining";
 
 const POKEAPI = "https://pokeapi.co/api/v2";
 
@@ -161,12 +161,16 @@ export async function getPokemonById(
 
     // Fetch evolution chain
     let evolutions: Evolution[] = [];
+    let isLegendary = false;
+    let isMythical = false;
     try {
       const speciesRes = await fetch(`${POKEAPI}/pokemon-species/${id}`, {
         next: { revalidate: 3600 },
       });
       if (speciesRes.ok) {
         const speciesData = await speciesRes.json();
+        isLegendary = speciesData.is_legendary;
+        isMythical = speciesData.is_mythical;
         if (speciesData.evolution_chain?.url) {
           const chainRes = await fetch(speciesData.evolution_chain.url, {
             next: { revalidate: 3600 },
@@ -203,7 +207,10 @@ export async function getPokemonById(
         }),
       ),
       obtainingMethod: getObtainingMethod(capitalize(data.name)),
+      locations: getPokemonLocations(capitalize(data.name)),
       evolutions,
+      isLegendary,
+      isMythical,
     };
   } catch {
     return null;
@@ -345,6 +352,8 @@ export async function getPokemonExtended(
 
     let evolutions: Evolution[] = [];
     let varieties: PokemonVariety[] = [];
+    let isLegendary = false;
+    let isMythical = false;
     const smogonNature = await getSmogonNature(data.name, ["sv", "sm"]);
     try {
       const speciesRes = await fetch(`${POKEAPI}/pokemon-species/${id}`, {
@@ -352,6 +361,8 @@ export async function getPokemonExtended(
       });
       if (speciesRes.ok) {
         const speciesData = await speciesRes.json();
+        isLegendary = speciesData.is_legendary;
+        isMythical = speciesData.is_mythical;
 
         if (speciesData.evolution_chain?.url) {
           const chainRes = await fetch(speciesData.evolution_chain.url, {
@@ -466,6 +477,10 @@ export async function getPokemonExtended(
       },
       evolutions,
       varieties,
+      obtainingMethod: getObtainingMethod(capitalize(data.name)),
+      locations: getPokemonLocations(capitalize(data.name)),
+      isLegendary,
+      isMythical,
     };
   } catch {
     return null;

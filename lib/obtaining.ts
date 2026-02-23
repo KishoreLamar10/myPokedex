@@ -291,9 +291,10 @@ function buildObtainingLocations() {
 
 const OBTAINING_LOCATIONS = buildObtainingLocations();
 
+const CATCH_LOCATIONS_BY_NAME: Record<string, string[]> = {};
+
 function buildLocationPokemonMap() {
   const locationMap: Record<string, Set<string>> = {};
-  const catchLocationsByName: Record<string, Set<string>> = {};
   const rows = parseCsv(OBTAINING_CSV);
   let lastName: string | null = null;
 
@@ -308,7 +309,7 @@ function buildLocationPokemonMap() {
     }
 
     if (!lastName) continue;
-    const normalizedLastName = normalizeKey(lastName);
+    const normalizedName = normalizeKey(lastName);
 
     [col2, col3].forEach((method) => {
       if (!method) return;
@@ -317,38 +318,45 @@ function buildLocationPokemonMap() {
       locations.forEach((location) => {
         if (!location) return;
         if (!locationMap[location]) locationMap[location] = new Set();
-        locationMap[location].add(normalizedLastName);
-        if (!catchLocationsByName[normalizedLastName]) {
-          catchLocationsByName[normalizedLastName] = new Set();
+        locationMap[location].add(normalizedName);
+        
+        if (!CATCH_LOCATIONS_BY_NAME[normalizedName]) {
+          CATCH_LOCATIONS_BY_NAME[normalizedName] = [];
         }
-        catchLocationsByName[normalizedLastName].add(location);
+        if (!CATCH_LOCATIONS_BY_NAME[normalizedName].includes(location)) {
+          CATCH_LOCATIONS_BY_NAME[normalizedName].push(location);
+        }
       });
     });
   }
 
+  // Handle evolutions
   lastName = null;
   for (let i = 1; i < rows.length; i += 1) {
     const [c1 = "", c2 = "", c3 = ""] = rows[i];
     const col1 = c1.trim();
-    const col2 = c2.trim();
-    const col3 = c3.trim();
-
-    if (col1 && !isLabel(col1)) {
-      lastName = col1;
-    }
-
+    if (col1 && !isLabel(col1)) lastName = col1;
     if (!lastName) continue;
-    const normalizedLastName = normalizeKey(lastName);
+    const normalizedName = normalizeKey(lastName);
 
-    [col2, col3].forEach((method) => {
+    [c2, c3].forEach((method) => {
       if (!method) return;
       const baseKey = extractEvolutionBaseKey(method);
       if (!baseKey) return;
-      const locations = catchLocationsByName[baseKey];
-      if (!locations || locations.size === 0) return;
+      
+      const locations = CATCH_LOCATIONS_BY_NAME[baseKey];
+      if (!locations || locations.length === 0) return;
+      
       locations.forEach((location) => {
         if (!locationMap[location]) locationMap[location] = new Set();
-        locationMap[location].add(normalizedLastName);
+        locationMap[location].add(normalizedName);
+        
+        if (!CATCH_LOCATIONS_BY_NAME[normalizedName]) {
+          CATCH_LOCATIONS_BY_NAME[normalizedName] = [];
+        }
+        if (!CATCH_LOCATIONS_BY_NAME[normalizedName].includes(location)) {
+          CATCH_LOCATIONS_BY_NAME[normalizedName].push(location);
+        }
       });
     });
   }
@@ -376,6 +384,11 @@ export function getObtainingLocations() {
 
 export function getObtainingLocationsForMethod(method: string) {
   return extractLocationsFromMethod(method);
+}
+
+export function getPokemonLocations(name: string): string[] {
+  const key = normalizeKey(name);
+  return CATCH_LOCATIONS_BY_NAME[key] ?? [];
 }
 
 export function getObtainingLocationPokemonMap() {

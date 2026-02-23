@@ -19,6 +19,7 @@ import { fetchPokemonMoves } from "@/lib/moveData";
 import { MovesTimeline } from "@/components/MovesTimeline";
 import { TMCompatibility } from "@/components/TMCompatibility";
 import { MoveCard } from "@/components/MoveCard";
+import LocationMiniMap from "./LocationMiniMap";
 
 
 const TYPE_GRADIENTS: Record<string, string> = {
@@ -134,9 +135,112 @@ function getRecommendations(stats: PokemonDetail["stats"]): Recommendation {
   };
 }
 
+function getStabMove(type: string, category: "Physical" | "Special"): string {
+  const t = type.toLowerCase();
+  if (category === "Physical") {
+    switch (t) {
+      case "normal": return "Return / Double-Edge";
+      case "fire": return "Flare Blitz / Fire Punch";
+      case "water": return "Waterfall / Aqua Tail";
+      case "electric": return "Wild Charge";
+      case "grass": return "Wood Hammer / Seed Bomb";
+      case "ice": return "Icicle Crash / Ice Spinner";
+      case "fighting": return "Close Combat / High Jump Kick";
+      case "poison": return "Gunk Shot / Poison Jab";
+      case "ground": return "Earthquake";
+      case "flying": return "Brave Bird / Dual Wingbeat";
+      case "psychic": return "Zen Headbutt / Psycho Cut";
+      case "bug": return "U-turn / Megahorn";
+      case "rock": return "Stone Edge / Rock Slide";
+      case "ghost": return "Poltergeist / Shadow Claw";
+      case "dragon": return "Outrage / Dragon Claw";
+      case "dark": return "Knock Off / Sucker Punch";
+      case "steel": return "Iron Head / Meteor Mash";
+      case "fairy": return "Play Rough";
+      default: return "Physical STAB";
+    }
+  } else {
+    switch (t) {
+      case "normal": return "Hyper Voice / Tri Attack";
+      case "fire": return "Flamethrower / Fire Blast";
+      case "water": return "Surf / Hydro Pump";
+      case "electric": return "Thunderbolt / Volt Switch";
+      case "grass": return "Energy Ball / Leaf Storm";
+      case "ice": return "Ice Beam / Blizzard";
+      case "fighting": return "Focus Blast / Aura Sphere";
+      case "poison": return "Sludge Bomb / Sludge Wave";
+      case "ground": return "Earth Power";
+      case "flying": return "Hurricane / Air Slash";
+      case "psychic": return "Psychic / Psyshock";
+      case "bug": return "Bug Buzz";
+      case "rock": return "Power Gem";
+      case "ghost": return "Shadow Ball / Hex";
+      case "dragon": return "Draco Meteor / Dragon Pulse";
+      case "dark": return "Dark Pulse";
+      case "steel": return "Flash Cannon";
+      case "fairy": return "Moonblast / Dazzling Gleam";
+      default: return "Special STAB";
+    }
+  }
+}
+
+function getCoverageMove(type: string, category: "Physical" | "Special"): string {
+  const t = type.toLowerCase();
+  
+  if (category === "Physical") {
+    switch (t) {
+      case "normal": return "Earthquake / Crunch";
+      case "fire": return "Thunder Punch / Earthquake";
+      case "water": return "Ice Punch / Crunch";
+      case "electric": return "Play Rough / Crunch";
+      case "grass": return "Rock Slide / Knock Off";
+      case "ice": return "Ice Shard / Earthquake";
+      case "fighting": return "Stone Edge / Ice Punch";
+      case "poison": return "Sucker Punch / Fire Punch";
+      case "ground": return "Stone Edge / Rock Slide";
+      case "flying": return "U-turn / Earthquake";
+      case "psychic": return "Focus Blast (Special) / Dazzling Gleam";
+      case "bug": return "Knock Off / Drill Run";
+      case "rock": return "Earthquake / Heavy Slam";
+      case "ghost": return "Close Combat / Drain Punch";
+      case "dragon": return "Earthquake / Iron Head";
+      case "dark": return "Sucker Punch / Iron Head";
+      case "steel": return "Earthquake / Body Press";
+      case "fairy": return "Fire Punch / Drain Punch";
+      default: return "Earthquake / Stone Edge";
+    }
+  } else {
+    switch (t) {
+      case "normal": return "Shadow Ball / Flamethrower";
+      case "fire": return "Solar Beam / Focus Blast";
+      case "water": return "Ice Beam / Hidden Power Grass";
+      case "electric": return "Hidden Power Ice / Grass Knot";
+      case "grass": return "Earth Power / Sludge Bomb";
+      case "ice": return "Freeze-Dry / Earth Power";
+      case "fighting": return "Dark Pulse / Vacuum Wave";
+      case "poison": return "Flamethrower / Shadow Ball";
+      case "ground": return "Ice Beam / Stealth Rock";
+      case "flying": return "Heat Wave / Roost";
+      case "psychic": return "Focus Blast / Shadow Ball";
+      case "bug": return "Giga Drain / Earth Power";
+      case "rock": return "Earth Power / Flash Cannon";
+      case "ghost": return "Focus Blast / Dazzling Gleam";
+      case "dragon": return "Fire Blast / Surf";
+      case "dark": return "Sludge Bomb / Psychic";
+      case "steel": return "Earth Power / Thunderbolt";
+      case "fairy": return "Mystical Fire / Psyshock";
+      default: return "Ice Beam / Thunderbolt";
+    }
+  }
+}
+
 function getCompetitiveExtras(
   stats: PokemonDetail["stats"],
-): CompetitiveExtras {
+  types: string[]
+): CompetitiveExtras & {
+  moveset1: { name: string; moves: string[] };
+  moveset2: { name: string; moves: string[] };
+} {
   const atk = getStatValue(stats, "attack");
   const spa = getStatValue(stats, "special attack");
   const def = getStatValue(stats, "defense");
@@ -149,6 +253,17 @@ function getCompetitiveExtras(
   const fast = spe >= Math.max(def, spd) && spe >= Math.max(atk, spa) * 0.8;
   const bulky = hp >= 80 && (def >= 80 || spd >= 80) && spe < 80;
 
+  const primaryType = types[0] || "Normal";
+  const secondaryType = types[1];
+
+  const phys1 = getStabMove(primaryType, "Physical");
+  const phys2 = secondaryType ? getStabMove(secondaryType, "Physical") : getCoverageMove(primaryType, "Physical");
+  const spec1 = getStabMove(primaryType, "Special");
+  const spec2 = secondaryType ? getStabMove(secondaryType, "Special") : getCoverageMove(primaryType, "Special");
+  
+  const covPhys = getCoverageMove(primaryType, "Physical");
+  const covSpec = getCoverageMove(primaryType, "Special");
+
   if (bulky) {
     return {
       items: [
@@ -156,6 +271,14 @@ function getCompetitiveExtras(
         def >= spd ? "Rocky Helmet" : "Assault Vest",
         "Heavy-Duty Boots",
       ],
+      moveset1: {
+        name: "Standard Bulky Pivot",
+        moves: ["Protect / Recover", "Toxic / Will-O-Wisp", "U-turn / Volt Switch", physical ? phys1 : spec1],
+      },
+      moveset2: {
+        name: "Setup Sweeper (Bulky)",
+        moves: ["Calm Mind / Bulk Up", "Recover / Roost", physical ? phys1 : spec1, physical ? covPhys : covSpec],
+      },
     };
   }
 
@@ -164,6 +287,14 @@ function getCompetitiveExtras(
       items: fast
         ? ["Choice Scarf", "Life Orb", "Heavy-Duty Boots"]
         : ["Choice Band", "Life Orb", "Assault Vest"],
+      moveset1: {
+        name: fast ? "Fast Physical Sweeper" : "Wallbreaker",
+        moves: ["Swords Dance / Dragon Dance", phys1, phys2, covPhys],
+      },
+      moveset2: {
+        name: "Choice Band / Scarf All-Out Attacker",
+        moves: [phys1, phys2, covPhys, "U-turn / Extreme Speed"],
+      },
     };
   }
 
@@ -172,11 +303,27 @@ function getCompetitiveExtras(
       items: fast
         ? ["Choice Scarf", "Life Orb", "Focus Sash"]
         : ["Choice Specs", "Life Orb", "Heavy-Duty Boots"],
+      moveset1: {
+        name: fast ? "Fast Special Sweeper" : "Special Wallbreaker",
+        moves: ["Nasty Plot / Calm Mind", spec1, spec2, covSpec],
+      },
+      moveset2: {
+        name: "Choice Specs / Scarf All-Out Attacker",
+        moves: [spec1, spec2, covSpec, "Volt Switch / Trick"],
+      },
     };
   }
 
   return {
     items: ["Life Orb", "Expert Belt", "Heavy-Duty Boots"],
+    moveset1: {
+      name: "Mixed All-Out Attacker",
+      moves: [phys1, spec1, covPhys, covSpec],
+    },
+    moveset2: {
+      name: "Utility / Pivot",
+      moves: ["U-turn / Volt Switch", "Toxic / Thunder Wave", phys1, covPhys],
+    },
   };
 }
 
@@ -295,6 +442,8 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
     new Set(),
   );
   const [movesTab, setMovesTab] = useState<"level-up" | "tm" | "egg" | "tutor">("level-up");
+  const [isLegendary, setIsLegendary] = useState(pokemon.isLegendary || false);
+  const [isMythical, setIsMythical] = useState(pokemon.isMythical || false);
   const [pokemonMoves, setPokemonMoves] = useState<PokemonMoveSet | null>(null);
   const [movesLoading, setMovesLoading] = useState(false);
   const preferencesLoadedRef = useRef(false);
@@ -333,8 +482,8 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
     [activeStats],
   );
   const competitiveExtras = useMemo(
-    () => getCompetitiveExtras(activeStats),
-    [activeStats],
+    () => getCompetitiveExtras(activeStats, activeTypes),
+    [activeStats, activeTypes],
   );
   const effectiveness = useMemo(() => getEffectivenessData(activeTypes), [activeTypes]);
   const strengths = useMemo(() => getStrengths(activeTypes), [activeTypes]);
@@ -439,6 +588,8 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
         setSmogonNature(
           typeof data.smogonNature === "string" ? data.smogonNature : null,
         );
+        setIsLegendary(data.isLegendary || false);
+        setIsMythical(data.isMythical || false);
       } catch {
         setDetailsError("Failed to load Pokémon details.");
       } finally {
@@ -696,6 +847,16 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                   Form
                 </span>
               )}
+              {isLegendary && (
+                <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-500 border border-amber-500/30">
+                  Legendary
+                </span>
+              )}
+              {isMythical && (
+                <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-purple-400 border border-purple-500/30">
+                  Mythical
+                </span>
+              )}
             </div>
             <div className="mt-1.5 flex flex-wrap justify-center gap-1.5">
               {activeTypes.map((t) => (
@@ -843,12 +1004,30 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                {activeVarietyIndex === -1 && pokemon.obtainingMethod && (
+                {activeVarietyIndex === -1 && (pokemon.obtainingMethod || pokemon.locations?.length) && (
                   <div className="rounded-xl border border-[var(--pokedex-border)] bg-zinc-800/60 p-4">
                     <h3 className="mb-2 text-sm font-black uppercase tracking-widest text-[var(--pokedex-screen)]">
                       Obtained
                     </h3>
-                    <p className="text-xs text-zinc-300 leading-relaxed">{pokemon.obtainingMethod}</p>
+                    {pokemon.obtainingMethod && (
+                      <p className="text-xs text-zinc-300 leading-relaxed mb-3">
+                        {pokemon.obtainingMethod}
+                      </p>
+                    )}
+                    {pokemon.locations && pokemon.locations.length > 0 && (
+                      <div className="space-y-3">
+                        {pokemon.locations.map((loc) => (
+                          <div key={loc} className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <span 
+                              className="px-2 py-1 rounded bg-zinc-900/60 text-[10px] font-bold text-emerald-400 border border-emerald-500/20 whitespace-nowrap h-fit"
+                            >
+                              📍 {loc}
+                            </span>
+                            <LocationMiniMap location={loc} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -951,7 +1130,7 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                         </div>
                       </div>
 
-                      <p className="text-[10px] text-zinc-500 italic leading-relaxed px-1">Note: {recommendation.note}</p>
+
                     </div>
 
                     {/* ABILITIES COLUMN */}
@@ -1016,6 +1195,38 @@ export function PokemonDetailClient({ pokemon }: PokemonDetailClientProps) {
                           </div>
                         </div>
                       )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Moveset 1</p>
+                            <p className="text-[9px] font-black text-white px-1.5 py-0.5 bg-zinc-700/50 rounded">{competitiveExtras.moveset1.name}</p>
+                          </div>
+                          <ul className="space-y-1">
+                            {competitiveExtras.moveset1.moves.map((m, i) => (
+                                <li key={i} className="text-[10px] text-zinc-300 font-mono tracking-tighter flex items-center gap-1.5">
+                                  <span className="text-zinc-600">-</span> {m}
+                                </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="rounded-lg bg-zinc-800/40 p-2 border border-zinc-700/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-[9px] font-black uppercase tracking-widest text-blue-400">Moveset 2</p>
+                            <p className="text-[9px] font-black text-white px-1.5 py-0.5 bg-zinc-700/50 rounded">{competitiveExtras.moveset2.name}</p>
+                          </div>
+                          <ul className="space-y-1">
+                            {competitiveExtras.moveset2.moves.map((m, i) => (
+                                <li key={i} className="text-[10px] text-zinc-300 font-mono tracking-tighter flex items-center gap-1.5">
+                                  <span className="text-zinc-600">-</span> {m}
+                                </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-zinc-500 italic leading-relaxed px-1 mt-1">Note: {recommendation.note}</p>
                     </div>
                   </div>
 

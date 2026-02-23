@@ -31,6 +31,10 @@ export interface PokemonExtended {
   };
   evolutions: Evolution[];
   varieties?: PokemonVariety[];
+  obtainingMethod?: string;
+  locations?: string[];
+  isLegendary?: boolean;
+  isMythical?: boolean;
 }
 
 export interface PokemonVariety {
@@ -56,4 +60,7 @@ export interface PokemonDetail extends PokemonListItem {
   abilities: { name: string; isHidden: boolean }[];
   stats: { name: string; value: number }[];
   evolutions?: Evolution[];
+  locations?: string[];
+  isLegendary?: boolean;
+  isMythical?: boolean;
 }

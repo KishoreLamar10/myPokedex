@@ -50,77 +50,15 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   transition: background-color 0.2s ease, color 0.2s ease;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Override hardcoded Tailwind colors with theme variables */
-/* Use attribute selectors to catch all variations including opacity modifiers */
-[class*="bg-zinc-900"],
-[class*="bg-gray-900"],
-[class*="bg-slate-900"],
-[class*="bg-neutral-900"],
-[class*="bg-neutral-800"] {
-  background-color: var(--bg-primary) !important;
-}
-
-[class*="bg-zinc-800"],
-[class*="bg-gray-800"],
-[class*="bg-gray-700"],
-[class*="bg-gray-600"],
-[class*="bg-slate-800"],
-[class*="bg-slate-700"],
-[class*="bg-slate-600"],
-[class*="bg-neutral-700"] {
-  background-color: var(--bg-secondary) !important;
-}
-
-[class*="bg-zinc-700"],
-[class*="bg-gray-500"],
-[class*="bg-slate-500"],
-[class*="bg-neutral-600"] {
-  background-color: var(--bg-tertiary) !important;
-}
-
-[class*="text-zinc-100"],
-[class*="text-zinc-200"],
-[class*="text-white"],
-[class*="text-gray-100"],
-[class*="text-gray-200"],
-[class*="text-slate-100"],
-[class*="text-slate-200"] {
-  color: var(--text-primary) !important;
-}
-
-[class*="text-zinc-300"],
-[class*="text-zinc-400"],
-[class*="text-gray-300"],
-[class*="text-gray-400"],
-[class*="text-slate-300"],
-[class*="text-slate-400"] {
-  color: var(--text-secondary) !important;
-}
-
-[class*="text-zinc-500"],
-[class*="text-zinc-600"],
-[class*="text-gray-500"],
-[class*="text-gray-600"],
-[class*="text-slate-500"],
-[class*="text-slate-600"] {
-  color: var(--text-muted) !important;
-}
-
-[class*="border-zinc-700"],
-[class*="border-gray-700"],
-[class*="border-gray-600"],
-[class*="border-slate-700"],
-[class*="border-slate-600"] {
-  border-color: var(--border) !important;
-}
-
-[class*="border-zinc-800"],
-[class*="border-gray-800"],
-[class*="border-slate-800"] {
-  border-color: var(--border-light) !important;
-}
+/* Custom overrides for components that dynamically set tailwind classes 
+   Removed wildcard selectors due to Tailwind v4 compilation hang.
+   We should implement a proper Tailwind v4 theme configuration instead. */
 
 .stat-progress {
   width: 100%;

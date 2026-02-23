@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryState } from "nuqs";
 import { useCaught } from "@/components/CaughtProvider";
 import type { PokemonListItem } from "@/types/pokemon";
 import { getTypeClass } from "@/lib/typeEffectiveness";
@@ -15,7 +16,7 @@ interface PokedexGridProps {
 export function PokedexGrid({ list }: PokedexGridProps) {
   const router = useRouter();
   const { caughtIds, toggleCaught, loading, error } = useCaught();
-  const [filter, setFilter] = useState<"all" | "caught" | "uncaught">("all");
+  const [filter, setFilter] = useQueryState("caught", { defaultValue: "all" as "all" | "caught" | "uncaught" });
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
   const [abilities, setAbilities] = useState<
@@ -286,7 +287,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {filtered.map((pokemon, index) => {
           const caught = caughtIds.includes(pokemon.id);
           const isHovered = hoveredId === pokemon.id;
@@ -302,7 +303,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
 
           return (
             <div
-              key={pokemon.id}
+              key={`${pokemon.id}-${index}`}
               ref={(el) => {
                 cardRefs.current[index] = el;
               }}
