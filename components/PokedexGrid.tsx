@@ -287,7 +287,7 @@ export function PokedexGrid({ list }: PokedexGridProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 3xl:grid-cols-8">
         {filtered.map((pokemon, index) => {
           const caught = caughtIds.includes(pokemon.id);
           const isHovered = hoveredId === pokemon.id;
@@ -342,32 +342,30 @@ export function PokedexGrid({ list }: PokedexGridProps) {
               }}
               aria-label={`Pokemon ${pokemon.name}`}
             >
-              <div
-                className={`rounded-xl border-2 transition-all duration-300 relative overflow-hidden ${
+            <div
+                className={`rounded-2xl border-2 transition-all duration-300 relative overflow-hidden ${
                   caught
-                    ? "bg-green-950/70 border-[var(--pokedex-screen)] shadow-[0_0_12px_rgba(139,195,74,0.3)]"
+                    ? "bg-green-950/70 border-[var(--pokedex-screen)] shadow-[0_0_20px_rgba(139,195,74,0.3)]"
                     : "bg-zinc-800/80 border-[var(--pokedex-border)]"
                 } ${
                   isHovered
-                    ? "scale-110 shadow-2xl border-[var(--pokedex-red)] z-10 p-6"
-                    : "shadow-lg p-3"
+                    ? "scale-105 shadow-2xl border-[var(--pokedex-red)] z-10 p-8"
+                    : "shadow-lg p-6 sm:p-3"
                 }`}
               >
-                {backgroundImage && (
                   <Image
                     src={backgroundImage}
                     alt=""
                     aria-hidden
-                    width={360}
-                    height={360}
-                    sizes="100vw"
-                    className={`absolute left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-300 ${
+                    width={400}
+                    height={400}
+                    sizes="(max-width: 640px) 100vw, 360px"
+                    className={`absolute left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-500 ${
                       isHovered
-                        ? "-top-16 h-[70%] w-[70%]"
-                        : "top-6 h-[40%] w-[40%]"
-                    } object-contain`}
+                        ? "-top-24 h-[80%] w-[80%]"
+                        : "top-10 h-[50%] w-[50%] sm:top-6 sm:h-[40%] sm:w-[40%]"
+                    } object-contain drop-shadow-[0_0_20px_rgba(0,0,0,0.5)]`}
                   />
-                )}
                 <div
                   className={`absolute inset-0 bg-gradient-to-b pointer-events-none ${
                     isHovered
@@ -392,22 +390,27 @@ export function PokedexGrid({ list }: PokedexGridProps) {
                       <button
                         type="button"
                         onClick={(e) => handleToggle(e, pokemon.id)}
-                        className={`rounded-full font-semibold transition ${
-                          isHovered ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm"
+                        className={`rounded-full font-bold transition flex items-center gap-2 ${
+                          isHovered ? "px-6 py-3 text-base" : "px-5 py-2.5 text-sm sm:px-3 sm:py-1.5"
                         } ${
                           caught
-                            ? "bg-[var(--pokedex-screen)] text-zinc-900"
-                            : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
-                        } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70`}
+                            ? "bg-[var(--pokedex-screen)] text-zinc-900 shadow-[0_0_15px_rgba(139,195,74,0.5)]"
+                            : "bg-zinc-700 text-zinc-200 hover:bg-zinc-600 border border-zinc-600"
+                        } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 active:scale-90`}
                         aria-label={`Toggle caught for ${pokemon.name}`}
                       >
-                        {caught ? "Caught" : "Catch"}
+                        {caught ? (
+                          <>
+                            <span className="text-zinc-900">✓</span>
+                            <span>Caught</span>
+                          </>
+                        ) : "Catch"}
                       </button>
                     )}
                   </div>
                   <p
-                    className={`text-center font-semibold text-white transition-all duration-300 drop-shadow-lg ${
-                      isHovered ? "text-xs mb-1" : "text-base mb-2"
+                    className={`text-center font-black text-white transition-all duration-300 drop-shadow-xl ${
+                      isHovered ? "text-sm mb-2" : "text-xl mb-4 sm:text-base sm:mb-2"
                     }`}
                   >
                     {pokemon.name}

@@ -3,27 +3,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "@/lib/supabase/auth";
 import { useCaught } from "@/components/CaughtProvider";
+import Link from "next/link";
 
 export function UserMenu() {
   const [loading, setLoading] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { caughtIds } = useCaught();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!showStats) return;
-
     const handleClickOutside = (event: MouseEvent) => {
       if (!menuRef.current) return;
       const target = event.target as Node;
       if (!menuRef.current.contains(target)) {
         setShowStats(false);
+        setIsMenuOpen(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showStats]);
+  }, []);
 
   const generations = useMemo(
     () => [
@@ -74,62 +75,119 @@ export function UserMenu() {
     }
   };
 
+  const navItems = [
+    { label: "Team Builder", href: "/team-builder" },
+    { label: "Journey", href: "/journal" },
+  ];
+
   return (
     <div ref={menuRef} className="relative flex items-center gap-2">
-      <a
-        href="/team-builder"
-        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
-      >
-        Team Builder
-      </a>
-      <a
-        href="/journal"
-        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
-      >
-        Journey
-      </a>
-      <button
-        type="button"
-        onClick={() => setShowStats((prev) => !prev)}
-        className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 shadow-sm"
-      >
-        Stats
-      </button>
-      <button
-        onClick={handleLogout}
-        disabled={loading}
-        aria-label="Sign out"
-        className="rounded-xl bg-zinc-800/80 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-300 transition-all hover:bg-rose-900/40 hover:text-rose-200 hover:scale-105 active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/70 border border-zinc-700/50"
-      >
-        {loading ? "Logging out..." : "Sign out"}
-      </button>
+      {/* Desktop View: Row of controls */}
+      <div className="hidden min-[1100px]:flex items-center gap-2">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 shadow-sm"
+          >
+            {item.label}
+          </Link>
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowStats((prev) => !prev)}
+          className="rounded-xl border border-zinc-800/50 bg-zinc-900/40 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-400 transition-all hover:bg-zinc-800/80 hover:text-white hover:scale-105 active:scale-95 shadow-sm"
+        >
+          Stats
+        </button>
+        <button
+          onClick={handleLogout}
+          disabled={loading}
+          className="rounded-xl bg-zinc-800/80 px-4 py-2 text-[11px] font-black uppercase tracking-wider text-zinc-300 transition-all hover:bg-rose-900/40 hover:text-rose-200 hover:scale-105 active:scale-95 disabled:opacity-50 border border-zinc-700/50"
+        >
+          {loading ? "..." : "Sign out"}
+        </button>
+      </div>
+
+      {/* Tablet/Mobile View: Avatar/Dropdown Trigger */}
+      <div className="min-[1100px]:hidden">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="flex items-center justify-center w-10 h-10 rounded-xl bg-[var(--pokedex-red)]/10 border-2 border-[var(--pokedex-red)]/50 text-[var(--pokedex-red)] hover:bg-[var(--pokedex-red)]/20 transition-all active:scale-90"
+          aria-label="User Menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </button>
+
+        {isMenuOpen && (
+          <div className="absolute right-0 top-12 z-50 w-48 rounded-2xl border border-zinc-800 bg-zinc-900/95 p-2 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center w-full px-4 py-3 text-sm font-bold text-zinc-400 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <button
+              onClick={() => {
+                setShowStats(true);
+                setIsMenuOpen(false);
+              }}
+              className="flex items-center w-full px-4 py-3 text-sm font-bold text-zinc-400 hover:text-white hover:bg-zinc-800/80 rounded-xl transition-colors text-left"
+            >
+              Stats
+            </button>
+            <div className="h-px bg-zinc-800 my-1 mx-2" />
+            <button
+              onClick={handleLogout}
+              disabled={loading}
+              className="flex items-center w-full px-4 py-3 text-sm font-bold text-rose-400 hover:text-rose-200 hover:bg-rose-900/20 rounded-xl transition-colors text-left"
+            >
+              {loading ? "Logging out..." : "Sign out"}
+            </button>
+          </div>
+        )}
+      </div>
 
       {showStats && (
-        <div className="absolute right-0 top-12 z-30 w-80 rounded-2xl border border-[var(--pokedex-border)] bg-zinc-900/95 p-4 shadow-2xl">
+        <div className="absolute right-0 top-12 z-50 w-[min(90vw,320px)] rounded-2xl border border-[var(--pokedex-border)] bg-zinc-900/98 p-4 shadow-2xl backdrop-blur-xl animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-zinc-200">Total Progress</p>
+            <button
+               onClick={() => setShowStats(false)}
+               className="text-zinc-500 hover:text-white"
+            >
+               ✕
+            </button>
+          </div>
           <div className="mb-4">
-            <p className="text-sm text-zinc-400">Overall</p>
-            <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-800">
+            <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-zinc-850 border border-zinc-800">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-amber-400 shadow-[0_0_16px_rgba(74,222,128,0.55)]"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-amber-400 shadow-[0_0_16px_rgba(74,222,128,0.3)]"
                 style={{ width: `${totalPercent}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-400">
+            <p className="mt-2 text-xs font-bold text-zinc-400">
               {totalCaught} / {totalPokemon} caught ({totalPercent}%)
             </p>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
             {generationStats.map((gen) => (
               <div key={gen.label}>
-                <div className="flex items-center justify-between text-xs text-zinc-400">
+                <div className="flex items-center justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">
                   <span>{gen.label}</span>
                   <span>
                     {gen.caught}/{gen.total} ({gen.percent}%)
                   </span>
                 </div>
-                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-zinc-850 border border-zinc-900">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-fuchsia-400 shadow-[0_0_12px_rgba(129,140,248,0.5)]"
+                    className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-fuchsia-400 shadow-[0_0_12px_rgba(129,140,248,0.2)]"
                     style={{ width: `${gen.percent}%` }}
                   />
                 </div>
