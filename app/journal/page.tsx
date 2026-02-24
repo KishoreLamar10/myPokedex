@@ -1,34 +1,39 @@
 "use client";
 
 import { useCaught } from "@/components/CaughtProvider";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getAllPokemonForSelector } from "@/lib/pokeapi";
+import { getPokemonBasicInfoBatch } from "@/lib/pokeapi";
 import { getTypeClass } from "@/lib/typeEffectiveness";
+import type { PokemonListItem } from "@/types/pokemon";
 
 export default function JournalPage() {
   const { caughtHistory, loading: caughtLoading } = useCaught();
-  const [pokemonMap, setPokemonMap] = useState<Record<number, any>>({});
-  const [loading, setLoading] = useState(true);
+  const [pokemonMap, setPokemonMap] = useState<Record<number, PokemonListItem>>({});
+  const [loadedCount, setLoadedCount] = useState(0);
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const pokes = await getAllPokemonForSelector();
-        const map: Record<number, any> = {};
-        pokes.forEach((p) => {
-          map[p.id] = p;
-        });
-        setPokemonMap(map);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+    if (caughtLoading || caughtHistory.length === 0 || fetchedRef.current) return;
+    fetchedRef.current = true;
 
-  if (loading || caughtLoading) {
+    const ids = caughtHistory.map((r) => r.pokemonId);
+
+    getPokemonBasicInfoBatch(
+      ids,
+      (batch) => {
+        setPokemonMap((prev) => ({ ...prev, ...batch }));
+        setLoadedCount((prev) => prev + Object.keys(batch).length);
+      },
+      8, // fetch 8 at a time for fast progressive rendering
+    );
+  }, [caughtLoading, caughtHistory]);
+
+  const totalUnique = new Set(caughtHistory.map((r) => r.pokemonId)).size;
+  const isFullyLoaded = loadedCount >= totalUnique;
+
+  if (caughtLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 p-8 flex items-center justify-center">
         <div className="text-zinc-500 animate-pulse">Consulting the Professor's records...</div>
@@ -42,7 +47,14 @@ export default function JournalPage() {
         <h1 className="text-3xl font-bold text-white mb-1 flex items-center gap-3">
           <span className="text-[var(--pokedex-red)]">📓</span> Adventure Journal
         </h1>
-        <p className="text-sm text-zinc-400">A chronological record of your Pokémon journey.</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-zinc-400">A chronological record of your Pokémon journey.</p>
+          {!isFullyLoaded && caughtHistory.length > 0 && (
+            <span className="text-xs text-zinc-500 animate-pulse">
+              Loading {loadedCount}/{totalUnique}...
+            </span>
+          )}
+        </div>
       </header>
 
       {caughtHistory.length === 0 ? (
@@ -59,7 +71,19 @@ export default function JournalPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
           {caughtHistory.map((record, index) => {
             const pokemon = pokemonMap[record.pokemonId];
-            if (!pokemon) return null;
+
+            // Skeleton placeholder while still loading this Pokémon's data
+            if (!pokemon) {
+              return (
+                <div
+                  key={`${record.pokemonId}-${record.caughtAt}`}
+                  className="relative min-h-[140px] bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-3 animate-pulse"
+                >
+                  <div className="w-full aspect-square bg-zinc-800/50 rounded-xl mb-2" />
+                  <div className="h-4 bg-zinc-800/50 rounded w-3/4 mx-auto" />
+                </div>
+              );
+            }
 
             const date = new Date(record.caughtAt);
             const formattedDate = date.toLocaleDateString("en-US", {
@@ -71,7 +95,7 @@ export default function JournalPage() {
               <div
                 key={`${record.pokemonId}-${record.caughtAt}`}
                 className="relative group animate-in fade-in zoom-in-95 duration-500"
-                style={{ animationDelay: `${index * 15}ms` }}
+                style={{ animationDelay: `${Math.min(index, 20) * 15}ms` }}
               >
                 {/* Catch Number Badge */}
                 <div className="absolute -top-1.5 -left-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-black text-zinc-400 shadow-xl transition-all group-hover:scale-125 group-hover:bg-[var(--pokedex-red)] group-hover:border-white group-hover:text-white">

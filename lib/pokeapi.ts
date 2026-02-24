@@ -584,6 +584,62 @@ export async function getAllPokemonForSelector(): Promise<PokemonListItem[]> {
   return getPokemonList(TOTAL_POKEMON, 0);
 }
 
+/**
+ * Lightweight batch fetcher — only grabs id, name, types, sprite.
+ * No species data, no evolutions, no abilities. Perfect for the Journal.
+ * Fetches in small concurrent batches for progressive rendering.
+ */
+export async function getPokemonBasicInfoBatch(
+  ids: number[],
+  onBatchLoaded?: (batch: Record<number, PokemonListItem>) => void,
+  batchSize = 10,
+): Promise<Record<number, PokemonListItem>> {
+  const uniqueIds = [...new Set(ids)];
+  const result: Record<number, PokemonListItem> = {};
+
+  for (let i = 0; i < uniqueIds.length; i += batchSize) {
+    const chunk = uniqueIds.slice(i, i + batchSize);
+    const fetched = await Promise.all(
+      chunk.map(async (id) => {
+        try {
+          const res = await fetch(`${POKEAPI}/pokemon/${id}`, {
+            next: { revalidate: 3600 },
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          return {
+            id: data.id,
+            name: formatName(data.name),
+            types: (data.types ?? []).map(
+              (t: { type: { name: string } }) => t.type.name,
+            ),
+            sprite:
+              data.sprites?.front_default ??
+              `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${data.id}.png`,
+          } as PokemonListItem;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const batchMap: Record<number, PokemonListItem> = {};
+    for (const p of fetched) {
+      if (p) {
+        result[p.id] = p;
+        batchMap[p.id] = p;
+      }
+    }
+
+    // Notify the caller so the UI can render progressively
+    if (onBatchLoaded && Object.keys(batchMap).length > 0) {
+      onBatchLoaded(batchMap);
+    }
+  }
+
+  return result;
+}
+
 export async function getPokemonLearnset(id: number | string): Promise<{ name: string; url: string }[]> {
   try {
     const res = await fetch(`${POKEAPI}/pokemon/${id}`, {
