@@ -1,6 +1,7 @@
 'use client';
 
 import type { Move, MoveCategory } from '@/types/move';
+import { getTypeClass } from '@/lib/typeEffectiveness';
 
 interface MoveCategoryIconProps {
   category: MoveCategory;
@@ -35,28 +36,8 @@ interface MoveCardProps {
 }
 
 export function MoveCard({ move, onClick, variant = 'list', showLevel }: MoveCardProps) {
-  const getTypeClass = (type: string) => {
-    const typeColors: Record<string, string> = {
-      normal: 'bg-gray-400 text-gray-900',
-      fire: 'bg-red-500 text-white',
-      water: 'bg-blue-500 text-white',
-      electric: 'bg-yellow-400 text-yellow-900',
-      grass: 'bg-green-500 text-white',
-      ice: 'bg-cyan-400 text-cyan-900',
-      fighting: 'bg-orange-700 text-white',
-      poison: 'bg-purple-500 text-white',
-      ground: 'bg-yellow-600 text-white',
-      flying: 'bg-indigo-400 text-white',
-      psychic: 'bg-pink-500 text-white',
-      bug: 'bg-lime-500 text-lime-900',
-      rock: 'bg-yellow-700 text-white',
-      ghost: 'bg-purple-700 text-white',
-      dragon: 'bg-indigo-600 text-white',
-      dark: 'bg-gray-800 text-white',
-      steel: 'bg-gray-500 text-white',
-      fairy: 'bg-pink-400 text-pink-900',
-    };
-    return typeColors[type] || 'bg-gray-400 text-gray-900';
+  const getTypeColorClass = (type: string) => {
+    return getTypeClass(type.charAt(0).toUpperCase() + type.slice(1).toLowerCase());
   };
 
   if (variant === 'compact') {
@@ -71,7 +52,7 @@ export function MoveCard({ move, onClick, variant = 'list', showLevel }: MoveCar
             {move.name.replace(/-/g, ' ')}
           </p>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getTypeClass(move.type)}`}>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${getTypeColorClass(move.type)}`}>
               {move.type}
             </span>
             {move.power && (
@@ -101,7 +82,7 @@ export function MoveCard({ move, onClick, variant = 'list', showLevel }: MoveCar
           {move.name.replace(/-/g, ' ')}
         </p>
         <div className="flex items-center gap-2 mt-1">
-          <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${getTypeClass(move.type)}`}>
+          <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${getTypeColorClass(move.type)}`}>
             {move.type}
           </span>
           {move.power && (

@@ -158,7 +158,7 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
               <div className="mt-2 space-y-1">
                    <div className="flex flex-wrap justify-center gap-1">
                       {member.types.map(t => (
-                          <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded text-white font-bold shadow-sm ${TYPE_COLORS[t] || "bg-zinc-700"}`}>
+                          <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded font-bold shadow-sm ${TYPE_COLORS[t] || "bg-zinc-700 text-white"}`}>
                               {t}
                           </span>
                       ))}
@@ -181,7 +181,7 @@ export function TeamSlot({ member, onAdd, onEdit, onRemove, onUpdate }: TeamSlot
                                 }}
                                 className={`text-[10px] px-1 py-0.5 rounded truncate text-center transition font-bold ${
                                     move 
-                                    ? `${colorClass} text-white border border-black/20 hover:brightness-110 shadow-sm` 
+                                    ? `${colorClass} border border-black/20 hover:brightness-110 shadow-sm` 
                                     : "bg-zinc-800/30 text-zinc-600 border border-dashed border-zinc-700 hover:border-zinc-500 hover:text-zinc-500"
                                 }`}
                             >

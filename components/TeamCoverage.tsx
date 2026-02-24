@@ -146,7 +146,7 @@ export function TeamCoverage({ team }: TeamCoverageProps) {
                   >
                     {type}
                     {score !== 0 && (
-                      <span className={`text-[10px] font-mono px-1 rounded bg-black/20 ${score > 0 ? "text-white/80" : "text-white/90"}`}>
+                      <span className="text-[10px] font-mono px-1 rounded bg-black/10 opacity-80">
                         {score > 0 ? `+${score}` : score}
                       </span>
                     )}

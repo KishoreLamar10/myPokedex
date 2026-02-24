@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { calculateDamage, calculateStat, getNatureModifier, type DamageCalcOptions } from '@/lib/damageCalc';
 import type { TeamMember } from '@/types/team';
+import { PokemonSelector } from './PokemonSelector';
+import { MoveSelector } from './MoveSelector';
+import { getPokemonById, getMoveDetails } from '@/lib/pokeapi';
+import type { PokemonListItem } from '@/types/pokemon';
 
 interface DamageCalculatorProps {
   isOpen: boolean;
@@ -22,7 +26,13 @@ const NATURES = [
 const MOVE_CATEGORIES = ['physical', 'special', 'status'] as const;
 
 export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefender }: DamageCalculatorProps) {
+  // Selectors State
+  const [isAttackerSelectorOpen, setIsAttackerSelectorOpen] = useState(false);
+  const [isDefenderSelectorOpen, setIsDefenderSelectorOpen] = useState(false);
+  const [isMoveSelectorOpen, setIsMoveSelectorOpen] = useState(false);
+
   // Attacker state
+  const [attackerId, setAttackerId] = useState<number>(initialAttacker?.id || 25); // Default Pikachu
   const [attackerName, setAttackerName] = useState(initialAttacker?.name || 'Pikachu');
   const [attackerLevel, setAttackerLevel] = useState(100);
   const [attackerTypes, setAttackerTypes] = useState<string[]>(initialAttacker?.types || ['electric']);
@@ -36,6 +46,7 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
   const [attackerSpaIV, setAttackerSpaIV] = useState(31);
 
   // Defender state
+  const [defenderId, setDefenderId] = useState<number>(initialDefender?.id || 6); // Default Charizard
   const [defenderName, setDefenderName] = useState(initialDefender?.name || 'Charizard');
   const [defenderLevel, setDefenderLevel] = useState(100);
   const [defenderTypes, setDefenderTypes] = useState<string[]>(initialDefender?.types || ['fire', 'flying']);
@@ -63,6 +74,49 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
   const [isCritical, setIsCritical] = useState(false);
   const [hasReflect, setHasReflect] = useState(false);
   const [hasLightScreen, setHasLightScreen] = useState(false);
+
+  // Handlers
+  const handleAttackerSelect = async (pkmn: PokemonListItem) => {
+    setAttackerId(pkmn.id);
+    setAttackerName(pkmn.name);
+    setAttackerTypes(pkmn.types);
+    const details = await getPokemonById(pkmn.id);
+    if (details) {
+      details.stats.forEach(s => {
+        const name = s.name.toLowerCase();
+        if (name === 'attack') setAttackerBaseAtk(s.value);
+        if (name === 'special attack') setAttackerBaseSpa(s.value);
+      });
+    }
+    setIsAttackerSelectorOpen(false);
+  };
+
+  const handleDefenderSelect = async (pkmn: PokemonListItem) => {
+    setDefenderId(pkmn.id);
+    setDefenderName(pkmn.name);
+    setDefenderTypes(pkmn.types);
+    const details = await getPokemonById(pkmn.id);
+    if (details) {
+      details.stats.forEach(s => {
+        const name = s.name.toLowerCase();
+        if (name === 'hp') setDefenderBaseHP(s.value);
+        if (name === 'defense') setDefenderBaseDef(s.value);
+        if (name === 'special defense') setDefenderBaseSpd(s.value);
+      });
+    }
+    setIsDefenderSelectorOpen(false);
+  };
+
+  const handleMoveSelect = async (moveName: string) => {
+    setMoveName(moveName);
+    const details = await getMoveDetails(moveName);
+    if (details) {
+      setMovePower(details.power || 0);
+      setMoveType(details.type.toLowerCase());
+      setMoveCategory(details.damageClass === 'physical' ? 'physical' : 'special');
+    }
+    setIsMoveSelectorOpen(false);
+  };
 
   // Calculate stats
   const attackerAtk = useMemo(() => {
@@ -127,14 +181,15 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-6xl bg-zinc-900/95 border-2 border-zinc-700 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div className="relative w-full max-w-6xl bg-zinc-900/95 border-2 border-zinc-700 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-zinc-800">
           <div className="flex items-center justify-between">
@@ -158,15 +213,15 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
               
               <div>
                 <label className="block text-sm font-semibold text-zinc-400 mb-1">Pokémon</label>
-                <input
-                  type="text"
-                  value={attackerName}
-                  onChange={(e) => setAttackerName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
+                <button
+                  onClick={() => setIsAttackerSelectorOpen(true)}
+                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-left focus:outline-none focus:ring-2 focus:ring-red-500 hover:bg-zinc-700 transition font-bold"
+                >
+                  {attackerName}
+                </button>
               </div>
 
-              <div>
+              <div className="opacity-50 pointer-events-none hidden">
                 <label className="block text-sm font-semibold text-zinc-400 mb-1">Level: {attackerLevel}</label>
                 <input
                   type="range"
@@ -208,8 +263,8 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
                   <input
                     type="number"
                     value={attackerBaseAtk}
-                    onChange={(e) => setAttackerBaseAtk(Number(e.target.value))}
-                    className="w-full px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+                    readOnly
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 text-sm cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -217,8 +272,8 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
                   <input
                     type="number"
                     value={attackerBaseSpa}
-                    onChange={(e) => setAttackerBaseSpa(Number(e.target.value))}
-                    className="w-full px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+                    readOnly
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 text-sm cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -262,12 +317,12 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
               
               <div>
                 <label className="block text-sm font-semibold text-zinc-400 mb-1">Move Name</label>
-                <input
-                  type="text"
-                  value={moveName}
-                  onChange={(e) => setMoveName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                />
+                <button
+                  onClick={() => setIsMoveSelectorOpen(true)}
+                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-left focus:outline-none focus:ring-2 focus:ring-yellow-500 hover:bg-zinc-700 transition font-bold"
+                >
+                  {moveName}
+                </button>
               </div>
 
               <div>
@@ -371,15 +426,15 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
               
               <div>
                 <label className="block text-sm font-semibold text-zinc-400 mb-1">Pokémon</label>
-                <input
-                  type="text"
-                  value={defenderName}
-                  onChange={(e) => setDefenderName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <button
+                  onClick={() => setIsDefenderSelectorOpen(true)}
+                  className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-zinc-700 transition font-bold"
+                >
+                  {defenderName}
+                </button>
               </div>
 
-              <div>
+              <div className="opacity-50 pointer-events-none hidden">
                 <label className="block text-sm font-semibold text-zinc-400 mb-1">Level: {defenderLevel}</label>
                 <input
                   type="range"
@@ -421,8 +476,8 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
                   <input
                     type="number"
                     value={defenderBaseHP}
-                    onChange={(e) => setDefenderBaseHP(Number(e.target.value))}
-                    className="w-full px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+                    readOnly
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 text-sm cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -430,8 +485,8 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
                   <input
                     type="number"
                     value={defenderBaseDef}
-                    onChange={(e) => setDefenderBaseDef(Number(e.target.value))}
-                    className="w-full px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+                    readOnly
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 text-sm cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -439,8 +494,8 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
                   <input
                     type="number"
                     value={defenderBaseSpd}
-                    onChange={(e) => setDefenderBaseSpd(Number(e.target.value))}
-                    className="w-full px-2 py-1 rounded bg-zinc-800 border border-zinc-700 text-white text-sm"
+                    readOnly
+                    className="w-full px-2 py-1 rounded bg-zinc-900 border border-zinc-700 text-zinc-400 text-sm cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -533,6 +588,28 @@ export function DamageCalculator({ isOpen, onClose, initialAttacker, initialDefe
           </div>
         </div>
       </div>
+
+      <PokemonSelector
+        isOpen={isAttackerSelectorOpen}
+        onClose={() => setIsAttackerSelectorOpen(false)}
+        onSelect={handleAttackerSelect}
+      />
+
+      <PokemonSelector
+        isOpen={isDefenderSelectorOpen}
+        onClose={() => setIsDefenderSelectorOpen(false)}
+        onSelect={handleDefenderSelect}
+      />
+
+      <MoveSelector
+        isOpen={isMoveSelectorOpen}
+        onClose={() => setIsMoveSelectorOpen(false)}
+        onSelect={handleMoveSelect}
+        pokemonId={attackerId}
+        pokemonName={attackerName}
+        pokemonTypes={attackerTypes}
+        stats={{ atk: attackerBaseAtk, spa: attackerBaseSpa }}
+      />
     </div>
   );
 }

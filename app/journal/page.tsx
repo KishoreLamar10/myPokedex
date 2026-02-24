@@ -56,7 +56,7 @@ export default function JournalPage() {
           </Link>
         </div>
       ) : (
-        <div className="relative space-y-4 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-800 before:to-transparent">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
           {caughtHistory.map((record, index) => {
             const pokemon = pokemonMap[record.pokemonId];
             if (!pokemon) return null;
@@ -65,54 +65,60 @@ export default function JournalPage() {
             const formattedDate = date.toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
-              year: "numeric",
-            });
-            const formattedTime = date.toLocaleTimeString("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
             });
 
             return (
-              <div key={`${record.pokemonId}-${record.caughtAt}`} className="relative flex items-center gap-4 group animate-in fade-in slide-in-from-left-4 duration-500" style={{ animationDelay: `${index * 20}ms` }}>
-                {/* Dot with Number */}
-                <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-zinc-800 bg-zinc-950 text-zinc-400 shadow-lg shrink-0 z-10 transition-all group-hover:border-[var(--pokedex-red)] group-hover:text-white group-hover:scale-110">
-                  <span className="text-xs font-black">{caughtHistory.length - index}</span>
+              <div
+                key={`${record.pokemonId}-${record.caughtAt}`}
+                className="relative group animate-in fade-in zoom-in-95 duration-500"
+                style={{ animationDelay: `${index * 15}ms` }}
+              >
+                {/* Catch Number Badge */}
+                <div className="absolute -top-1.5 -left-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-black text-zinc-400 shadow-xl transition-all group-hover:scale-125 group-hover:bg-[var(--pokedex-red)] group-hover:border-white group-hover:text-white">
+                  {caughtHistory.length - index}
                 </div>
- 
-                {/* Compact Card */}
-                <div className="flex-1 bg-zinc-900/60 border border-zinc-800/80 p-2.5 rounded-2xl shadow-lg transition-all duration-300 group-hover:border-zinc-700 group-hover:bg-zinc-800/80 group-hover:shadow-[var(--pokedex-red)]/5 flex items-center gap-4">
-                  <Link href={`/pokedex/${pokemon.id}`} className="relative w-14 h-14 bg-zinc-950 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-[var(--pokedex-red)]/30 transition-colors shrink-0">
-                    <Image
-                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
-                      alt={pokemon.name}
-                      fill
-                      className="object-contain p-1.5 transition-transform duration-500 group-hover:scale-110"
-                      unoptimized
-                    />
-                  </Link>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="text-base font-black text-white group-hover:text-[var(--pokedex-red)] transition-colors capitalize truncate">
+                <Link
+                  href={`/pokedex/${pokemon.id}`}
+                  className="block relative min-h-[140px] bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-3 transition-all duration-300 group-hover:border-[var(--pokedex-red)]/50 group-hover:bg-zinc-800/80 group-hover:shadow-[0_0_20px_rgba(227,53,13,0.1)] overflow-hidden"
+                >
+                  {/* Background Accents */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br from-[var(--pokedex-red)] to-transparent" />
+                  
+                  <div className="relative h-full flex flex-col items-center justify-between gap-1">
+                    {/* Large Sprite */}
+                    <div className="relative w-full aspect-square flex items-center justify-center">
+                      <Image
+                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
+                        alt={pokemon.name}
+                        fill
+                        className="object-contain p-1 transition-transform duration-500 group-hover:scale-125 group-hover:-rotate-6"
+                        unoptimized
+                      />
+                    </div>
+
+                    {/* Meta Footer */}
+                    <div className="w-full text-center mt-auto p-1.5 bg-zinc-950/80 rounded-xl border border-zinc-800 select-none">
+                      <h3 className="text-sm font-extrabold text-white capitalize group-hover:text-[var(--pokedex-red)] transition-colors leading-tight">
                         {pokemon.name}
                       </h3>
-                      <time className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-tighter whitespace-nowrap">
-                        {formattedDate}
-                      </time>
-                    </div>
-                    
-                    <div className="flex items-center justify-between gap-2">
-                       <span className="text-[11px] font-mono font-bold text-zinc-600 bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-800">
-                         #{String(pokemon.id).padStart(3, "0")}
-                       </span>
-                       <div className="flex gap-1.5">
-                        {pokemon.types.map((t: string) => (
-                          <div key={t} className={`w-2.5 h-2.5 rounded-full shadow-sm hover:scale-125 transition-transform ${getTypeClass(t).split(' ')[0]}`} title={t} />
-                        ))}
+                      <div className="flex items-center justify-center gap-2 mt-1 py-0.5 border-t border-zinc-800/50">
+                        <time className="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-tighter">
+                          {formattedDate}
+                        </time>
+                        <div className="flex gap-1">
+                          {pokemon.types.map((t: string) => (
+                            <div
+                              key={t}
+                              className={`w-2.5 h-2.5 rounded-full ring-2 ring-zinc-950/50 ${getTypeClass(t).split(' ')[0]}`}
+                              title={t}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </div>
             );
           })}

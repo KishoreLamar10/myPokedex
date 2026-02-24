@@ -28,6 +28,32 @@ function formatName(str: string) {
     .join(" ");
 }
 
+function isRedundantForm(name: string, id: number): boolean {
+  if (id < 10000) return false;
+  const lower = name.toLowerCase();
+  const battleOnlySuffixes = [
+    "-blade",
+    "-school",
+    "-zen",
+    "-active",
+    "-busted",
+    "-gulping",
+    "-cramorgorging",
+    "-noice",
+    "-hangry",
+    "-hero",
+    "-terastal",
+    "-stellar",
+    "-meteor",
+    "-complete",
+    "-resolute",
+    "-pirouette",
+    "-active",
+    "-busted",
+  ];
+  return battleOnlySuffixes.some((s) => lower.endsWith(s));
+}
+
 function getBestArtwork(sprites: any) {
   const official =
     sprites?.other?.["official-artwork"]?.front_default ||
@@ -142,7 +168,10 @@ export async function getPokemonList(
       }),
     );
     results.push(
-      ...(chunkResults.filter(Boolean) as PokemonListItem[]),
+      ...(chunkResults.filter((p) => {
+        if (!p) return false;
+        return !isRedundantForm(p.name, p.id);
+      }) as PokemonListItem[]),
     );
   }
 

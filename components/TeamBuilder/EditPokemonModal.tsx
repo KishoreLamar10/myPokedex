@@ -184,21 +184,15 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
                     
                     <div>
                         <label className="block text-xs font-semibold text-zinc-400 mb-1">Item</label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={edited.item}
-                                readOnly
-                                placeholder="No Item"
-                                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none cursor-default opacity-80"
-                            />
-                            <button 
-                                onClick={() => setSelectorOpen("item")}
-                                className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold transition flex items-center gap-2"
-                            >
-                                🔍 Search
-                            </button>
-                        </div>
+                        <button 
+                            onClick={() => setSelectorOpen("item")}
+                            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-left hover:bg-zinc-700 transition flex items-center justify-between group"
+                        >
+                            <span className={edited.item ? "text-white" : "text-zinc-500"}>
+                                {edited.item || "No Item"}
+                            </span>
+                            <span className="text-xs text-zinc-500 group-hover:text-zinc-300">🔍 Change</span>
+                        </button>
                     </div>
 
                     <div>
@@ -332,28 +326,24 @@ export function EditPokemonModal({ member, isOpen, onClose, onSave }: EditPokemo
                     {Array.from({ length: 4 }).map((_, i) => (
                         <div key={i}>
                             <label className="block text-xs font-semibold text-zinc-500 mb-1">Move {i + 1}</label>
-                            <div className="flex gap-2">
-                                <div className={`flex-1 flex items-center border border-zinc-700 rounded-lg px-3 py-2 transition shadow-sm ${
+                            <button 
+                                onClick={() => {
+                                    setActiveMoveIndex(i);
+                                    setSelectorOpen("move");
+                                }}
+                                className={`w-full flex items-center justify-between border border-zinc-700 rounded-lg px-3 py-2 transition shadow-sm hover:brightness-110 active:scale-[0.99] ${
                                     (() => {
                                         const move = edited.moves[i];
                                         const type = move ? edited.moveTypes?.[move] : null;
-                                        if (!type) return "bg-zinc-800";
+                                        if (!type) return "bg-zinc-800 text-zinc-500";
                                         const capitalized = type.charAt(0).toUpperCase() + type.slice(1);
-                                        return TYPE_COLORS[capitalized] || "bg-zinc-800";
+                                        return TYPE_COLORS[capitalized] || "bg-zinc-800 text-white";
                                     })()
-                                } text-white font-bold`}>
-                                   {edited.moves[i] || `Move ${i + 1}`}
-                                </div>
-                                <button 
-                                    onClick={() => {
-                                        setActiveMoveIndex(i);
-                                        setSelectorOpen("move");
-                                    }}
-                                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-zinc-600 shadow-sm"
-                                >
-                                    🔍 Search
-                                </button>
-                            </div>
+                                } font-bold text-sm shadow-inner overflow-hidden`}
+                            >
+                                <span className="truncate">{edited.moves[i] || `Select Move ${i + 1}`}</span>
+                                <span className={`text-[10px] uppercase opacity-60`}>Search</span>
+                            </button>
                         </div>
                     ))}
                 </div>
