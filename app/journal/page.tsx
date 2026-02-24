@@ -56,7 +56,7 @@ export default function JournalPage() {
           </Link>
         </div>
       ) : (
-        <div className="relative space-y-3 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-800 before:to-transparent">
+        <div className="relative space-y-4 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-800 before:to-transparent">
           {caughtHistory.map((record, index) => {
             const pokemon = pokemonMap[record.pokemonId];
             if (!pokemon) return null;
@@ -73,40 +73,45 @@ export default function JournalPage() {
             });
 
             return (
-              <div key={`${record.pokemonId}-${record.caughtAt}`} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 30}ms` }}>
-                {/* Dot */}
-                <div className="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-colors group-hover:border-[var(--pokedex-screen)] group-hover:text-[var(--pokedex-screen)]">
-                  <span className="text-[10px] font-bold leading-none">{index + 1}</span>
+              <div key={`${record.pokemonId}-${record.caughtAt}`} className="relative flex items-center gap-4 group animate-in fade-in slide-in-from-left-4 duration-500" style={{ animationDelay: `${index * 20}ms` }}>
+                {/* Dot with Number */}
+                <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-zinc-800 bg-zinc-950 text-zinc-400 shadow-lg shrink-0 z-10 transition-all group-hover:border-[var(--pokedex-red)] group-hover:text-white group-hover:scale-110">
+                  <span className="text-xs font-black">{caughtHistory.length - index}</span>
                 </div>
  
-                {/* Card */}
-                <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] bg-zinc-900 border border-zinc-800 p-3 rounded-xl shadow-xl transition-all duration-300 group-hover:border-zinc-700 group-hover:bg-zinc-800/50 group-hover:shadow-[var(--pokedex-red)]/5">
-                  <div className="flex items-center justify-between mb-2">
-                    <time className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{formattedDate} • {formattedTime}</time>
-                    <div className="flex gap-1">
-                      {pokemon.types.map((t: string) => (
-                        <div key={t} className={`w-2 h-2 rounded-full ${getTypeClass(t).split(' ')[0]}`} title={t} />
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <Link href={`/pokedex/${pokemon.id}`} className="flex items-center gap-3">
-                    <div className="relative w-12 h-12 bg-zinc-800 rounded-lg group-hover:scale-110 transition-transform duration-300">
-                      <Image
-                        src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
-                        alt={pokemon.name}
-                        fill
-                        className="object-contain p-1"
-                        unoptimized
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white group-hover:text-[var(--pokedex-screen)] transition-colors capitalize">
+                {/* Compact Card */}
+                <div className="flex-1 bg-zinc-900/60 border border-zinc-800/80 p-2.5 rounded-2xl shadow-lg transition-all duration-300 group-hover:border-zinc-700 group-hover:bg-zinc-800/80 group-hover:shadow-[var(--pokedex-red)]/5 flex items-center gap-4">
+                  <Link href={`/pokedex/${pokemon.id}`} className="relative w-14 h-14 bg-zinc-950 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-[var(--pokedex-red)]/30 transition-colors shrink-0">
+                    <Image
+                      src={`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`}
+                      alt={pokemon.name}
+                      fill
+                      className="object-contain p-1.5 transition-transform duration-500 group-hover:scale-110"
+                      unoptimized
+                    />
+                  </Link>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <h3 className="text-base font-black text-white group-hover:text-[var(--pokedex-red)] transition-colors capitalize truncate">
                         {pokemon.name}
                       </h3>
-                      <p className="text-[10px] text-zinc-500 font-mono">#{String(pokemon.id).padStart(3, "0")}</p>
+                      <time className="text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-tighter whitespace-nowrap">
+                        {formattedDate}
+                      </time>
                     </div>
-                  </Link>
+                    
+                    <div className="flex items-center justify-between gap-2">
+                       <span className="text-[11px] font-mono font-bold text-zinc-600 bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-800">
+                         #{String(pokemon.id).padStart(3, "0")}
+                       </span>
+                       <div className="flex gap-1.5">
+                        {pokemon.types.map((t: string) => (
+                          <div key={t} className={`w-2.5 h-2.5 rounded-full shadow-sm hover:scale-125 transition-transform ${getTypeClass(t).split(' ')[0]}`} title={t} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

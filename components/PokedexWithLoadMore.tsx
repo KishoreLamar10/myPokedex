@@ -572,6 +572,32 @@ export function PokedexWithLoadMore({
             <option value="Evolving">Evolving</option>
           </select>
 
+          {/* Location Filter Trigger */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <button
+              onClick={() => setLocationOpen(!locationOpen)}
+              className={`flex-1 rounded-xl border-2 px-4 py-3 md:py-2 text-sm font-bold transition flex items-center justify-between gap-2 md:w-auto ${
+                selectedLocation
+                  ? 'bg-blue-900/30 border-blue-500/50 text-blue-200'
+                  : 'bg-zinc-800 border-[var(--pokedex-border)] text-zinc-200 hover:border-[var(--pokedex-red)]'
+              }`}
+            >
+              <span className="truncate max-w-[150px]">
+                📍 {selectedLocation ? `Location: ${selectedLocation}` : 'All Locations'}
+              </span>
+              <span className="text-zinc-500">{locationOpen ? "▼" : "▶"}</span>
+            </button>
+            {selectedLocation && (
+              <button
+                onClick={() => setSelectedLocation("")}
+                className="p-3 md:p-2 rounded-xl bg-zinc-800 border-2 border-[var(--pokedex-border)] text-[var(--pokedex-red)] hover:bg-[var(--pokedex-red)]/10"
+                title="Clear Location"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           {/* Advanced Filters Toggle */}
           <button
             onClick={() => setAdvancedFiltersOpen(!advancedFiltersOpen)}
@@ -581,11 +607,57 @@ export function PokedexWithLoadMore({
                 : 'bg-zinc-800 border-[var(--pokedex-border)] text-zinc-200 hover:border-[var(--pokedex-red)]/70'
             }`}
           >
-            🔍 Advanced Filters {advancedFiltersOpen ? '▼' : '▶'}
+            🔍 Advanced {advancedFiltersOpen ? '▼' : '▶'}
           </button>
         </div>
       </div>
 
+      {/* Location Expansion Panel */}
+      {locationOpen && (
+        <div className="bg-zinc-900/40 p-6 rounded-2xl border border-zinc-800/50 backdrop-blur-sm animate-in slide-in-from-top-2 duration-300 space-y-4">
+          <input
+            type="text"
+            aria-label="Search locations"
+            placeholder="Filter locations..."
+            value={locationSearch}
+            onChange={(e) => setLocationSearch(e.target.value)}
+            className="w-full rounded-xl border-2 border-[var(--pokedex-border)] bg-zinc-800 px-4 py-3 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-[var(--pokedex-red)]"
+          />
+          <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pr-1 scrollbar-hide">
+            <button
+              onClick={() => {
+                setSelectedLocation("");
+                setLocationOpen(false);
+              }}
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition border ${
+                !selectedLocation
+                  ? 'border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white'
+                  : 'border-zinc-700/70 bg-zinc-800/60 text-zinc-400 hover:text-white'
+              }`}
+            >
+              All Locations
+            </button>
+            {filteredLocations.map((loc: string) => (
+              <button
+                key={loc}
+                onClick={() => {
+                  setSelectedLocation(loc);
+                  setLocationOpen(false);
+                }}
+                className={`rounded-full px-4 py-1.5 text-xs font-bold transition border ${
+                  selectedLocation === loc
+                    ? 'border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white'
+                    : 'border-zinc-700/70 bg-zinc-800/60 text-zinc-400 hover:text-white'
+                }`}
+              >
+                {loc}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Filters Panel */}
       {/* Advanced Filters Panel */}
       {advancedFiltersOpen && (
         <AdvancedFilters
@@ -596,86 +668,8 @@ export function PokedexWithLoadMore({
         />
       )}
 
-      <div className="space-y-4 bg-zinc-900/40 p-6 rounded-2xl border border-zinc-800/50 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setLocationOpen((prev) => !prev)}
-            className={`flex items-center gap-2 rounded-lg border-2 bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-200 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pokedex-red)]/70 ${
-              selectedLocationComplete
-                ? "border-emerald-400/80 shadow-[0_0_12px_rgba(16,185,129,0.35)]"
-                : "border-[var(--pokedex-border)] hover:border-[var(--pokedex-red)]/70"
-            }`}
-            aria-controls="location-filter-panel"
-          >
-            <span>Filter by location</span>
-            <span className="text-xs text-zinc-400">
-              {selectedLocation ? `• ${selectedLocation}` : "• All"}
-            </span>
-            <span className="text-zinc-400">{locationOpen ? "▾" : "▸"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedLocation("")}
-            className="text-xs font-bold text-zinc-400 hover:text-white transition-colors bg-zinc-800/40 px-2 py-1 rounded-md"
-          >
-            Clear Location
-          </button>
-        </div>
-        {locationOpen && (
-          <div id="location-filter-panel" className="space-y-3">
-            <input
-              type="text"
-              aria-label="Search locations"
-              placeholder="Search locations..."
-              value={locationSearch}
-              onChange={(e) => setLocationSearch(e.target.value)}
-              className={`w-full rounded-lg border-2 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition focus:ring-2 focus:ring-[var(--pokedex-red)]/50 ${
-                selectedLocationComplete
-                  ? "border-emerald-400/80"
-                  : "border-[var(--pokedex-border)] focus:border-[var(--pokedex-red)]"
-              }`}
-            />
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
-              <button
-                type="button"
-                onClick={() => setSelectedLocation("")}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
-                  !selectedLocation
-                    ? "border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white"
-                    : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
-                }`}
-              >
-                All Locations
-              </button>
-              {filteredLocations.map((location) => (
-                <button
-                  key={location}
-                  type="button"
-                  onClick={() => setSelectedLocation(location)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition border ${
-                    selectedLocation === location
-                      ? "border-[var(--pokedex-red)] bg-[var(--pokedex-red)]/20 text-white"
-                      : locationCompletion[location]
-                        ? "border-emerald-400/80 bg-emerald-500/10 text-emerald-100"
-                        : "border-zinc-700/70 bg-zinc-800/60 text-zinc-300 hover:bg-zinc-700/70"
-                  }`}
-                >
-                  {location}
-                  {locationCompletion[location] ? " ✓" : ""}
-                </button>
-              ))}
-              {filteredLocations.length === 0 && (
-                <span className="text-xs text-zinc-500">
-                  No locations found.
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
       {deferredSearch.trim() && (
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           {[
             { key: "hasMega", label: "Has Mega" },
             { key: "haRecommended", label: "HA Recommended" },

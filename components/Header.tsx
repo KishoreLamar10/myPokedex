@@ -14,8 +14,8 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-800/50 bg-zinc-950/60 backdrop-blur-xl transition-all duration-300 pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex flex-col px-4 py-3 md:px-8 lg:px-12 md:flex-row md:items-center md:justify-between md:gap-4 max-w-[1920px]">
-        {/* Row 1: Logo & Instant Access Items */}
+      <div className="mx-auto flex flex-col px-4 py-3 md:px-8 lg:px-12 md:flex-row md:items-center md:justify-between md:gap-8 max-w-[1920px]">
+        {/* Row 1: Logo, Tracker, and Mobile Toggle */}
         <div className="flex items-center justify-between gap-3 w-full md:w-auto">
           <div className="flex items-center gap-3 sm:gap-6">
             <Link
@@ -63,12 +63,13 @@ export function Header() {
           </button>
         </div>
 
-        {/* Search & Secondary Nav (Collapsible on Mobile) */}
-        <div className={`${isMenuOpen ? 'flex' : 'hidden'} flex-col gap-4 mt-4 md:mt-0 md:flex md:flex-row md:items-center md:flex-1 md:justify-end md:gap-6 animate-in slide-in-from-top-2 duration-300`}>
-          <div className="flex-1 w-full max-w-full md:max-w-[400px] lg:max-w-[500px]">
-            <PokemonSearch />
-          </div>
+        {/* Global Search Bar - Now Persistent and Centered on Desktop */}
+        <div className="mt-3 md:mt-0 flex-1 w-full md:max-w-[400px] lg:max-w-[600px] md:mx-auto">
+          <PokemonSearch />
+        </div>
 
+        {/* Secondary Nav (Still Collapsible on Mobile) */}
+        <div className={`${isMenuOpen ? 'flex' : 'hidden'} flex-col gap-4 mt-4 md:mt-0 md:flex md:flex-row md:items-center md:gap-6 animate-in slide-in-from-top-2 duration-300`}>
           <div className="flex items-center justify-between md:justify-end gap-3 pb-2 md:pb-0 border-t border-zinc-800/50 pt-4 md:pt-0 md:border-0">
             <div className="flex items-center gap-3">
               <ThemeToggle />
