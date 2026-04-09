@@ -1,16 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default function HomePage({
+export default async function HomePage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const params = typeof searchParams === 'function' ? {} : (searchParams as any);
-
-  return <HomeContent searchParams={searchParams} />;
-}
-
-async function HomeContent({ searchParams }: { searchParams: any }) {
   const resolvedParams = await searchParams;
   const error = resolvedParams.error || resolvedParams.error_description;
 
@@ -20,4 +14,8 @@ async function HomeContent({ searchParams }: { searchParams: any }) {
   }
 
   redirect("/pokedex");
+  
+  // Return null to satisfy TypeScript's JSX requirements, 
+  // though redirect() will prevent this from ever rendering.
+  return null;
 }
