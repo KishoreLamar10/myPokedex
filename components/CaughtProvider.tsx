@@ -146,7 +146,7 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
 
   // Allow auth-related pages to render without being gated by the AuthForm
   const isAuthRoute =
-    pathname?.startsWith("/auth/") || pathname === "/reset-password";
+    pathname?.startsWith("/auth/") || pathname?.startsWith("/reset-password");
 
   // Show auth form if not authenticated AND not on an auth-related route
   if (!authenticated && !loading && !isAuthRoute) {

@@ -11,7 +11,7 @@ export async function signUp(
     email,
     password,
     options: {
-      emailRedirectTo: `${getURL()}auth/callback`,
+      emailRedirectTo: `${getURL()}/auth/callback`,
       data: {
         favorite_pokemon: favoritePokemon,
       },
@@ -73,7 +73,7 @@ export async function getFavoritePokemon(userId: string) {
 export async function resetPassword(email: string) {
   const supabase = createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${getURL()}auth/callback?next=${encodeURIComponent("/reset-password")}`,
+    redirectTo: `${getURL()}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
   });
   if (error) throw error;
 }

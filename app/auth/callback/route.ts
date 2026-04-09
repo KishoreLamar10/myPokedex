@@ -27,8 +27,12 @@ export async function GET(request: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     console.log("Exchange successful. Session established:", !!session);
     
-    console.log("Redirecting to:", next);
-    return NextResponse.redirect(`${origin}${next}`);
+    // Clean up 'next' to ensure it starts with / and doesn't conflict with origin trailing slash
+    let target = next.startsWith("/") ? next : `/${next}`;
+    const finalUrl = new URL(target, origin).toString();
+    
+    console.log("Redirecting to final destination:", finalUrl);
+    return NextResponse.redirect(finalUrl);
   }
 
   // return the user to an error page with instructions
