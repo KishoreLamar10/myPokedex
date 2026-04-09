@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ThemeCustomizer } from '@/components/ThemeCustomizer';
+import { SecuritySettings } from '@/components/SecuritySettings';
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<'theme' | 'general'>('theme');
+  const [activeSection, setActiveSection] = useState<'theme' | 'security'>('theme');
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-6">
@@ -18,7 +19,7 @@ export default function SettingsPage() {
           >
             ← Back to Pokédex
           </Link>
-          <h1 className="text-4xl font-black">Settings</h1>
+          <h1 className="text-4xl font-black italic tracking-tighter uppercase">Settings</h1>
           <p className="text-zinc-400 mt-2">Customize your Pokédex experience</p>
         </div>
 
@@ -26,58 +27,45 @@ export default function SettingsPage() {
         <div className="flex gap-2 mb-6 border-b border-zinc-800">
           <button
             onClick={() => setActiveSection('theme')}
-            className={`px-4 py-2 font-semibold transition border-b-2 ${
+            className={`px-4 py-2 font-black italic uppercase tracking-tighter transition border-b-2 ${
               activeSection === 'theme'
                 ? 'border-red-500 text-white'
-                : 'border-transparent text-zinc-400 hover:text-white'
+                : 'border-transparent text-zinc-500 hover:text-white'
             }`}
           >
             🎨 Theme
           </button>
           <button
-            onClick={() => setActiveSection('general')}
-            className={`px-4 py-2 font-semibold transition border-b-2 ${
-              activeSection === 'general'
+            onClick={() => setActiveSection('security')}
+            className={`px-4 py-2 font-black italic uppercase tracking-tighter transition border-b-2 ${
+              activeSection === 'security'
                 ? 'border-red-500 text-white'
-                : 'border-transparent text-zinc-400 hover:text-white'
+                : 'border-transparent text-zinc-500 hover:text-white'
             }`}
           >
-            ⚙️ General
+            ⚙️ Security
           </button>
         </div>
 
         {/* Content */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-4 md:p-8 backdrop-blur-md">
           {activeSection === 'theme' && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Theme Customization</h2>
-              <p className="text-zinc-400 mb-6">
-                Personalize the look and feel of your Pokédex with custom themes and colors.
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-4 shadow-sm">Theme Customization</h2>
+              <p className="text-zinc-400 mb-8 max-w-2xl">
+                Personalize the look and feel of your Pokédex with custom themes and accent colors.
               </p>
               <ThemeCustomizer />
             </div>
           )}
 
-          {activeSection === 'general' && (
-            <div>
-              <h2 className="text-2xl font-bold mb-4">General Settings</h2>
-              <p className="text-zinc-400 mb-6">
-                More settings coming soon...
+          {activeSection === 'security' && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-2xl font-black italic uppercase tracking-tighter mb-4">Account Security</h2>
+              <p className="text-zinc-400 mb-8 max-w-2xl">
+                Manage your login credentials and security recovery information.
               </p>
-              <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                  <h3 className="font-semibold mb-2">Data Management</h3>
-                  <p className="text-sm text-zinc-400">
-                    Import/export your preferences, tags, and notes.
-                  </p>
-                </div>
-                <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
-                  <h3 className="font-semibold mb-2">Notifications</h3>
-                  <p className="text-sm text-zinc-400">
-                    Configure PWA notifications (coming soon).
-                  </p>
-                </div>
-              </div>
+              <SecuritySettings />
             </div>
           )}
         </div>

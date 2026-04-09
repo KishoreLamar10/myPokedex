@@ -130,3 +130,17 @@ export async function updatePassword(password: string) {
   });
   if (error) throw error;
 }
+
+export async function updateSecretQuestion(userId: string, question: string, answer: string) {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("user_profiles")
+    .update({
+      secret_question: question,
+      secret_answer: answer,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", userId);
+
+  if (error) throw error;
+}
