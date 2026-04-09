@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { updatePassword } from "@/lib/supabase/auth";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
