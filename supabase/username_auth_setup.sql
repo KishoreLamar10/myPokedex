@@ -1,3 +1,6 @@
+-- 0. Enable the necessary extension for password hashing
+create extension if not exists pgcrypto with schema extensions;
+
 -- 1. Add new columns to user_profiles
 alter table public.user_profiles 
 add column if not exists secret_question text,
@@ -28,7 +31,7 @@ create or replace function public.reset_password_with_secret(
 )
 returns boolean
 security definer
-set search_path = public, auth
+set search_path = public, auth, extensions
 language plpgsql
 as $$
 declare
@@ -54,9 +57,9 @@ begin
   end if;
 
   -- 4. Update the password in auth.users
-  -- Supabase Auth stores passwords in auth.users.
+  -- Uses the pgcrypto extension directly
   update auth.users
-  set encrypted_password = crypt(p_new_password, gen_salt('bf')),
+  set encrypted_password = extensions.crypt(p_new_password, extensions.gen_salt('bf')),
       updated_at = now()
   where id = v_user_id;
 
