@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { fetchCaughtIds, fetchCaughtHistory, toggleCaughtInDb } from "@/lib/supabase/caught";
 import { createClient } from "@/lib/supabase/client";
 import { AuthForm } from "@/components/AuthForm";
@@ -80,8 +81,23 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
       }
     };
     run();
+
+    // Listen for auth changes to sync state immediately
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event, !!session);
+      if (session?.user) {
+        setUserId(session.user.id);
+        setAuthenticated(true);
+      } else {
+        setUserId(null);
+        setAuthenticated(false);
+      }
+    });
+
     return () => {
       cancelled = true;
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -126,8 +142,14 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
     userId,
   };
 
-  // Show auth form if not authenticated
-  if (!authenticated && !loading) {
+  const pathname = usePathname();
+
+  // Allow auth-related pages to render without being gated by the AuthForm
+  const isAuthRoute =
+    pathname?.startsWith("/auth/") || pathname === "/reset-password";
+
+  // Show auth form if not authenticated AND not on an auth-related route
+  if (!authenticated && !loading && !isAuthRoute) {
     return (
       <AuthForm
         onSuccess={() => {

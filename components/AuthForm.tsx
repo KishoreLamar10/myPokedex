@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { signIn, signUp } from "@/lib/supabase/auth";
+import { signIn, signUp, resetPassword } from "@/lib/supabase/auth";
 
 interface AuthFormProps {
   onSuccess: () => void;
@@ -9,7 +9,7 @@ interface AuthFormProps {
 }
 
 export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
-  const [mode, setMode] = useState<"login" | "signup">(initialMode);
+  const [mode, setMode] = useState<"login" | "signup" | "forgot-password">(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [favoritePokemon, setFavoritePokemon] = useState("pikachu");
@@ -50,12 +50,16 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
         setPassword("");
         setFavoritePokemon("pikachu");
         setTimeout(() => setMode("login"), 2000);
+      } else if (mode === "forgot-password") {
+        await resetPassword(email);
+        setSuccess("Password reset link sent! Please check your email.");
+        setEmail("");
       } else {
         await signIn(email, password);
         onSuccess();
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+    } catch (err: any) {
+      setError(err?.message || err?.error_description || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -71,7 +75,9 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
           <p className="text-center text-zinc-400 mb-6">
             {mode === "login"
               ? "Sign in to your account"
-              : "Create a new account"}
+              : mode === "signup"
+                ? "Create a new account"
+                : "Enter your email to reset password"}
           </p>
 
           {error && (
@@ -105,23 +111,36 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-zinc-300 mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full rounded-lg border-2 border-zinc-700 bg-zinc-700/50 px-4 py-2.5 text-white placeholder-zinc-500 outline-none transition focus:border-[var(--pokedex-red)] focus:ring-2 focus:ring-[var(--pokedex-red)]/50"
-                placeholder="••••••••"
-              />
-            </div>
+            {mode !== "forgot-password" && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-zinc-300"
+                  >
+                    Password
+                  </label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot-password")}
+                      className="text-xs text-[var(--pokedex-red)] hover:brightness-110"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-lg border-2 border-zinc-700 bg-zinc-700/50 px-4 py-2.5 text-white placeholder-zinc-500 outline-none transition focus:border-[var(--pokedex-red)] focus:ring-2 focus:ring-[var(--pokedex-red)]/50"
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
 
             {mode === "signup" && (
               <div>
@@ -150,26 +169,57 @@ export function AuthForm({ onSuccess, initialMode = "login" }: AuthFormProps) {
                 ? "Loading..."
                 : mode === "login"
                   ? "Sign In"
-                  : "Create Account"}
+                  : mode === "signup"
+                    ? "Create Account"
+                    : "Send Reset Link"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-zinc-400">
-              {mode === "login"
-                ? "Don't have an account? "
-                : "Already have an account? "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === "login" ? "signup" : "login");
-                  setError(null);
-                  setSuccess(null);
-                }}
-                className="text-[var(--pokedex-red)] hover:brightness-110 font-semibold transition"
-              >
-                {mode === "login" ? "Sign up" : "Sign in"}
-              </button>
+              {mode === "login" ? (
+                <>
+                  Don't have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("signup");
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="text-[var(--pokedex-red)] hover:brightness-110 font-semibold transition"
+                  >
+                    Sign up
+                  </button>
+                </>
+              ) : mode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="text-[var(--pokedex-red)] hover:brightness-110 font-semibold transition"
+                  >
+                    Sign in
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("login");
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  className="text-[var(--pokedex-red)] hover:brightness-110 font-semibold transition"
+                >
+                  Back to login
+                </button>
+              )}
             </p>
           </div>
         </div>

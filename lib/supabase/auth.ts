@@ -1,4 +1,5 @@
 import { createClient } from "./client";
+import { getURL } from "./utils";
 
 export async function signUp(
   email: string,
@@ -9,19 +10,14 @@ export async function signUp(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: `${getURL()}auth/callback`,
+      data: {
+        favorite_pokemon: favoritePokemon,
+      },
+    },
   });
   if (error) throw error;
-
-  // Create user profile with favorite pokemon
-  if (data.user?.id) {
-    const { error: profileError } = await supabase
-      .from("user_profiles")
-      .insert({
-        id: data.user.id,
-        favorite_pokemon: favoritePokemon,
-      });
-    if (profileError) throw profileError;
-  }
 
   return data.user;
 }
@@ -72,4 +68,20 @@ export async function getFavoritePokemon(userId: string) {
 
   if (error) return 25; // Default to Pikachu
   return data?.favorite_pokemon ?? 25;
+}
+
+export async function resetPassword(email: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${getURL()}auth/callback?next=${encodeURIComponent("/reset-password")}`,
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(password: string) {
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({
+    password,
+  });
+  if (error) throw error;
 }
