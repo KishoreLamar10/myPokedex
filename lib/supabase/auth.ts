@@ -1,35 +1,80 @@
 import { createClient } from "./client";
 import { getURL } from "./utils";
 
+/**
+ * Signs up a new user using a username and password.
+ * Internally maps the username to a @pokedex.local email.
+ */
 export async function signUp(
-  email: string,
+  username: string,
   password: string,
-  favoritePokemon: number = 25,
+  favoritePokemon: number,
+  secretQuestion: string,
+  secretAnswer: string,
 ) {
   const supabase = createClient();
+  const internalEmail = `${username.trim().toLowerCase()}@pokedex.local`;
+
   const { data, error } = await supabase.auth.signUp({
-    email,
+    email: internalEmail,
     password,
     options: {
-      emailRedirectTo: `${getURL()}/auth/callback`,
       data: {
         favorite_pokemon: favoritePokemon,
+        secret_question: secretQuestion,
+        secret_answer: secretAnswer,
       },
     },
   });
-  if (error) throw error;
 
-  return data.user;
+  if (error) throw error;
+  return data;
 }
 
-export async function signIn(email: string, password: string) {
+/**
+ * Signs in a user using a username and password.
+ */
+export async function signIn(username: string, password: string) {
   const supabase = createClient();
+  const internalEmail = `${username.trim().toLowerCase()}@pokedex.local`;
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: internalEmail,
     password,
   });
+
   if (error) throw error;
-  return data.user;
+  return data;
+}
+
+/**
+ * Fetches the secret question for a given username.
+ */
+export async function getSecretQuestion(username: string) {
+  const supabase = createClient();
+
+  // Better approach: use a dedicated RPC to fetch question securely by username
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_question', {
+    p_username: username
+  });
+
+  if (rpcError) throw rpcError;
+  return rpcData;
+}
+
+/**
+ * Resets a password using the secret answer.
+ */
+export async function resetPasswordWithSecret(username: string, answer: string, newPassword: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('reset_password_with_secret', {
+    p_username: username.trim().toLowerCase(),
+    p_secret_answer: answer,
+    p_new_password: newPassword
+  });
+
+  if (error) throw error;
+  return data;
 }
 
 export async function signOut() {
