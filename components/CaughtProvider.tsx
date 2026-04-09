@@ -21,6 +21,7 @@ type CaughtContextValue = {
   loading: boolean;
   error: string | null;
   userId: string | null;
+  userEmail: string | null;
 };
 
 const CaughtContext = createContext<CaughtContextValue | null>(null);
@@ -37,6 +38,7 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
         }
 
         setUserId(user.id);
+        setUserEmail(user.email ?? null);
         setAuthenticated(true);
         
         // Critical: load main caught IDs
@@ -88,9 +91,11 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
       console.log("Auth event:", event, !!session);
       if (session?.user) {
         setUserId(session.user.id);
+        setUserEmail(session.user.email ?? null);
         setAuthenticated(true);
       } else {
         setUserId(null);
+        setUserEmail(null);
         setAuthenticated(false);
       }
     });
@@ -140,6 +145,7 @@ export function CaughtProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     userId,
+    userEmail,
   };
 
   const pathname = usePathname();

@@ -8,9 +8,14 @@ import { FavoritePokemonIcon } from "./FavoritePokemonIcon";
 import { UserMenu } from "./UserMenu";
 import { ThemeToggle } from "./ThemeToggle";
 import { GlobalCaughtTracker } from "./GlobalCaughtTracker";
+import { useCaught } from "./CaughtProvider";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { userEmail } = useCaught();
+
+  const username = userEmail?.split('@')[0] || '';
+  const displayName = username.charAt(0).toUpperCase() + username.slice(1);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-zinc-800/50 bg-zinc-950/60 backdrop-blur-xl transition-all duration-300 pt-[env(safe-area-inset-top)]">
@@ -25,7 +30,9 @@ export function Header() {
               <div className="w-10 h-10 rounded-full border-2 border-[var(--pokedex-red)] bg-zinc-800 flex items-center justify-center overflow-hidden shadow-lg shadow-[var(--pokedex-red)]/20 group-hover:scale-110 transition-transform">
                 <Image src="/icon-192.png" alt="" width={40} height={40} className="object-contain" />
               </div>
-              <span className="hidden min-[480px]:inline bg-gradient-to-r from-[var(--pokedex-red)] to-red-400 bg-clip-text text-transparent">My Pokédex</span>
+              <span className="hidden min-[480px]:inline bg-gradient-to-r from-[var(--pokedex-red)] to-red-400 bg-clip-text text-transparent">
+                {displayName ? `Hi! ${displayName}` : "My Pokédex"}
+              </span>
             </Link>
             
             <div className="flex items-center gap-1.5 sm:gap-3">
